@@ -1,0 +1,37 @@
+roverrobotics_driver:
+  ros__parameters:
+    diagnostics_frequency: 0.2
+    odometry_frequency: 15.0
+    motor_control_p_gain: 0.00048
+    motor_control_i_gain: 0.00000
+    motor_control_d_gain: 0.000007
+    publish_tf: false
+    # robot_status_topic: "/"
+    # robot_status_frequency: 60.0
+    # robot_info_request_topic:
+    # robot_info_topic:
+    robot_type: "mega"
+    device_port: "can0"
+    comm_type: "can"
+    
+    speed_topic: "/cmd_vel"
+    # estop_trigger_topic:
+    # estop_reset_topic:
+    # trim_topic:
+    # estop_state:
+    control_mode: "INDEPENDENT_WHEEL"
+    # linear_top_speed:
+    # angular_top_speed:
+    odom_topic: "/odom_raw"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link"
+    #angular_a_coef: 0.8
+    #angular_b_coef: 1.0
+    #angular_c_coef: 1.0
+    #angular_min_scale: 1.0
+    #angular_max_scale: 1.5
+
+joint_state_publisher:
+  ros__parameters:
+    publish_default_positions: true
+    rate: 30

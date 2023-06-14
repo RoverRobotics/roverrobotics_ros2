@@ -1,0 +1,4 @@
+# creates fixed name for rover serial communication
+# WARNING this will overwrite any FTDI device that have the similar signature
+KERNEL=="ttyUSB[0-9]", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", MODE:="0777", SYMLINK+="rover", RUN+="/bin/setserial /dev/%k low_latency"
+KERNEL=="ttyUSB[0-9]", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", MODE:="0777", SYMLINK+="rover", RUN+="/bin/setserial /dev/%k low_latency"

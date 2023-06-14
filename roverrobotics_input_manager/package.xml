@@ -1,0 +1,24 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+    <name>roverrobotics_input_manager</name>
+    <version>0.1.1</version>
+    <description>Contains Rover provided teleoperation applications.</description>
+    <maintainer email="info@roverrobotics.com">Rover Robotics</maintainer>
+    <license>BSD-3-Clause</license>
+
+    <author email="will@roverrobotics.com">William Rook</author>
+    <author email="info@roverrobotics.com">Rover Robotics</author>
+
+    <buildtool_depend>ament_cmake</buildtool_depend>
+
+    <test_depend>ament_lint_auto</test_depend>
+    <test_depend>ament_lint_common</test_depend>
+
+    <depend>rclpy</depend>
+    <exec_depend>joy</exec_depend>
+
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
+</package>

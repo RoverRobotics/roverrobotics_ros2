@@ -1,0 +1,19 @@
+joy_manager:
+  topic: /cmd_vel
+  type: Twist
+  publish_multiple_halt: false
+  throttle:
+    lin_increment: 0.25
+    lin_throttle_ctrl: DPAD_VERT
+    ang_increment: 0.25
+    ang_throttle_ctrl: DPAD_HORIZ
+  turbo: 0
+  data:
+    linear:
+      x: LEFT_JOY_VERT
+      y: 0
+      z: 0
+    angular:
+      x: 0
+      y: RIGHT_JOY_VERT
+      z: RIGHT_JOY_HORIZ
