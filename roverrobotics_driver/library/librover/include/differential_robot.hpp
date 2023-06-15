@@ -24,13 +24,35 @@ class RoverRobotics::DifferentialRobot
                      float robot_length,
                      Control::pid_gains pid);
 
+  /*
+   * @brief Trim Robot Velocity
+   * Modify robot velocity differential (between the left side/right side) with
+   * the input parameter. Useful to compensate if the robot tends to drift
+   * either left or right while commanded to drive straight.
+   * @param double of velocity offset
+   */
+  void update_drivetrim(double) override;
+  /*
+   * @brief Handle Estop Event
+   * Send an estop event to the robot
+   * @param bool accept a estop state
+   */
   void send_estop(bool) override;
   /*
    * @brief Request Robot Status
    * @return structure of statusData
    */
   robotData status_request() override;
+  /*
+   * @brief Request Robot Unique Infomation
+   * @return structure of statusData
+   */
   robotData info_request() override;
+  /*
+   * @brief Cycle through robot supported modes
+   * @return int of the current mode enum
+   */
+  int cycle_robot_mode() override;
   /*
    * @brief Set Robot velocity
    * Set Robot velocity: IF robot_mode_ TRUE, this function will attempt a
@@ -76,6 +98,16 @@ class RoverRobotics::DifferentialRobot
    */
   void motors_control_loop(int sleeptime);
 
+  /*
+   * @brief loads the persistent parameters from a non-volatile config file
+   * 
+   */
+  void load_persistent_params();
+
+  std::unique_ptr<Utilities::PersistentParams> persistent_params_;
+
+  const std::string ROBOT_PARAM_PATH = strcat(std::getenv("HOME"), "/robot.config");
+
   /* metric units (meters) */
   Control::robot_geometry robot_geometry_;
 
@@ -94,6 +126,8 @@ class RoverRobotics::DifferentialRobot
   /* empirically measured */
   const float OPEN_LOOP_MAX_RPM_ = 600;
 
+  /* limit to the trim that can be applied; more than this means a robot issue*/
+  const float MAX_CURVATURE_CORRECTION_ = .15;
 
   int robotmode_num_ = Control::INDEPENDENT_WHEEL;
 

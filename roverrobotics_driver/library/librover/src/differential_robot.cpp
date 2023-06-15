@@ -171,6 +171,32 @@ void DifferentialRobot::send_command(int sleeptime) {
   }
 }
 
+int DifferentialRobot::cycle_robot_mode() {
+    // ONLY CLOSED LOOP CONTROL FOR 4WD
+    return -1;
+}
+
+void DifferentialRobot::update_drivetrim(double delta) {
+
+  if (-MAX_CURVATURE_CORRECTION_ < (trimvalue_ + delta) && (trimvalue_ + delta) < MAX_CURVATURE_CORRECTION_) {
+    trimvalue_ += delta;
+
+    /* reduce power to right wheels */
+    if (trimvalue_ >= 0) {
+      left_trim_ = 1;
+      right_trim_ = 1 - trimvalue_;
+    }
+    /* reduce power to left wheels */
+    else {
+      right_trim_ = 1;
+      left_trim_ = 1 + trimvalue_;
+    }
+    skid_control_->setTrim(left_trim_, right_trim_);
+    std::cout << "writing trim " << trimvalue_ << " to file " << std::endl;
+    persistent_params_->write_param("trim", trimvalue_);
+  }
+  
+}
 
 void DifferentialRobot::motors_control_loop(int sleeptime) {
   float linear_vel_target, angular_vel_target, rpm_FL, rpm_FR, rpm_BL, rpm_BR;
