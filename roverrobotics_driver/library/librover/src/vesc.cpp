@@ -54,9 +54,6 @@ std::vector<uint8_t> BridgedVescArray::buildCommandMessage(
     case (RPM):
       command.commandValue /= RPM_SCALING_FACTOR;
       break;
-    case (SETRPM):
-      command.commandValue /= RPM_SCALING_FACTOR;
-      break;
     case (CURRENT):
       command.commandValue /= CURRENT_SCALING_FACTOR;
       break;

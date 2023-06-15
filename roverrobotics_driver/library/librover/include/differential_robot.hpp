@@ -22,7 +22,8 @@ class RoverRobotics::DifferentialRobot
                      float wheel_radius,
                      float wheel_base,
                      float robot_length,
-                     Control::pid_gains pid);
+                     Control::pid_gains pid,
+                     Control::angular_scaling_params angular_scale);
 
   /*
    * @brief Trim Robot Velocity

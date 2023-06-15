@@ -202,7 +202,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   } else if (robot_type_ == "mini") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
-          device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_);
+          device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
       if (i == SOCKET_CREATION_ERROR) {

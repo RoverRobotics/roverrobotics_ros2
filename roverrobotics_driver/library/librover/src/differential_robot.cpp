@@ -4,13 +4,21 @@ DifferentialRobot::DifferentialRobot(const char *device,
                                      float wheel_radius,
                                      float wheel_base,
                                      float robot_length,
-                                     Control::pid_gains pid) {
+                                     Control::pid_gains pid,
+                                     Control::angular_scaling_params angular_scale) {
+
+
+  /* create object to load/store persistent parameters (ie trim) */
+  persistent_params_ = std::make_unique<Utilities::PersistentParams>(ROBOT_PARAM_PATH);
 
   /* set comm mode: can vs serial vs other */
   comm_type_ = "CAN";
 
   /* clear main data structure for holding robot status and commands */
   robotstatus_ = {0};
+
+  /* scaling of angular command vs linear speed; useful for teleop */
+  angular_scaling_params_ = angular_scale;
 
   /* Set robot geometry */
   robot_geometry_ = {.intra_axle_distance = robot_length,
@@ -36,8 +44,11 @@ DifferentialRobot::DifferentialRobot(const char *device,
 
   /* make and initialize the motion logic object */
   skid_control_ = std::make_unique<Control::SkidRobotMotionController>(
-      Control::TRACTION_CONTROL, robot_geometry_, pid_, MOTOR_MAX_, MOTOR_MIN_,
+      Control::INDEPENDENT_WHEEL, robot_geometry_, pid_, MOTOR_MAX_, MOTOR_MIN_,
       left_trim_, right_trim_, geometric_decay_);
+
+  /* MUST be done after skid control is constructed */
+  load_persistent_params();
 
   skid_control_->setOperatingMode(Control::INDEPENDENT_WHEEL);
   skid_control_->setAccelerationLimits(
@@ -174,6 +185,15 @@ void DifferentialRobot::send_command(int sleeptime) {
 int DifferentialRobot::cycle_robot_mode() {
     // ONLY CLOSED LOOP CONTROL FOR 4WD
     return -1;
+}
+
+void DifferentialRobot::load_persistent_params() {
+  
+  /* trim (aka curvature correction) */
+  if(auto param = persistent_params_->read_param("trim")){
+    update_drivetrim(param.value());
+    std::cout << "Loaded trim from persistent param file: " << param.value() << std::endl;
+  }
 }
 
 void DifferentialRobot::update_drivetrim(double delta) {

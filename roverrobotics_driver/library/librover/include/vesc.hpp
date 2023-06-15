@@ -17,7 +17,6 @@ typedef struct {
 enum vescPacketFlags : uint32_t {
   PACKET_FLAG = 0x80000000,
   RPM = 0x00000900,
-  SETRPM = 0x00000300,
   CURRENT = 0x00000100,
   DUTY = 0x00000000
 };
