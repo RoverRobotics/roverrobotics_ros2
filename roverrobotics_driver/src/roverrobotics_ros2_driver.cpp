@@ -16,6 +16,9 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   robot_type_ = declare_parameter("robot_type", ROBOT_TYPE_DEFAULT_);
   device_port_ = declare_parameter("device_port", DEVICE_PORT_DEFAULT_);
   comm_type_ = declare_parameter("comm_type", COMM_TYPE_DEFAULT_);
+  wheel_radius_ = declare_parameter("wheel_radius", 0.1);
+  wheel_base_ = declare_parameter("wheel_base", 0.25);
+  robot_length_ = declare_parameter("robot_length", 0.25);
   // Drive
   speed_topic_ = declare_parameter("speed_topic", SPEED_TOPIC_DEFAULT_);
   estop_trigger_topic_ =
@@ -199,7 +202,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   } else if (robot_type_ == "mini") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
-          device_port_.c_str(), wheel_radius, wheel_base, robot_length);
+          device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
       if (i == SOCKET_CREATION_ERROR) {

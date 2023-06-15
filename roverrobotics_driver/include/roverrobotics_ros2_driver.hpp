@@ -110,6 +110,9 @@ class RobotDriver : public rclcpp::Node {
   std::string trim_topic_;
   std::string device_port_;
   std::string comm_type_;
+  float wheel_radius_;
+  float wheel_base_;
+  float robot_length_;
   std::string odom_topic_;
 
   // odom
