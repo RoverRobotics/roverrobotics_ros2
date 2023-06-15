@@ -21,7 +21,8 @@ class RoverRobotics::DifferentialRobot
   DifferentialRobot(const char *device, 
                      float wheel_radius,
                      float wheel_base,
-                     float robot_length);
+                     float robot_length,
+                     Control::pid_gains pid);
 
   void send_estop(bool) override;
   /*
@@ -75,17 +76,6 @@ class RoverRobotics::DifferentialRobot
    */
   void motors_control_loop(int sleeptime);
 
-  /*
-   * @brief Computes the wheel speeds from robot speeds
-   * @param target_velocities - robot target velocities
-   * @param wheel_radius - wheel radius
-   * @param wheel_base - length between wheels from side to side
-   * @param robot_length - length between wheels from front to back
-   */
-  Control::motor_data computeDifferentialWheelSpeeds(Control::robot_velocities target_velocities, Control::robot_geometry robot_geometry);
-  Control::robot_velocities computeVelocitiesFromWheelspeeds(
-    Control::motor_data wheel_speeds, Control::robot_geometry robot_geometry);
-
   /* metric units (meters) */
   Control::robot_geometry robot_geometry_;
 
@@ -125,6 +115,9 @@ class RoverRobotics::DifferentialRobot
   
   bool estop_;
 
+  Control::robot_motion_mode_t robot_mode_;
+  Control::pid_gains pid_;
+  Control::angular_scaling_params angular_scaling_params_;
   vesc::BridgedVescArray vescArray_;
 
 };

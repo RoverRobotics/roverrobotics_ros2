@@ -3,7 +3,8 @@ namespace RoverRobotics {
 DifferentialRobot::DifferentialRobot(const char *device, 
                                      float wheel_radius,
                                      float wheel_base,
-                                     float robot_length) {
+                                     float robot_length,
+                                     Control::pid_gains pid) {
 
   /* set comm mode: can vs serial vs other */
   comm_type_ = "CAN";
@@ -29,6 +30,19 @@ DifferentialRobot::DifferentialRobot(const char *device,
   vescArray_ = vesc::BridgedVescArray(
       std::vector<uint8_t>{VESC_IDS::FRONT_LEFT, VESC_IDS::FRONT_RIGHT,
                            VESC_IDS::BACK_LEFT, VESC_IDS::BACK_RIGHT});
+  
+  /* register the pid gains for closed-loop modes */
+  pid_ = pid;
+
+  /* make and initialize the motion logic object */
+  skid_control_ = std::make_unique<Control::SkidRobotMotionController>(
+      Control::TRACTION_CONTROL, robot_geometry_, pid_, MOTOR_MAX_, MOTOR_MIN_,
+      left_trim_, right_trim_, geometric_decay_);
+
+  skid_control_->setOperatingMode(Control::INDEPENDENT_WHEEL);
+  skid_control_->setAccelerationLimits(
+          {LINEAR_JERK_LIMIT_, std::numeric_limits<float>::max()});
+
 
   /* set up the comm port */
   register_comm_base(device);
@@ -147,7 +161,7 @@ void DifferentialRobot::send_command(int sleeptime) {
       auto msg =  vescArray_.buildCommandMessage((vesc::vescChannelCommand){
               .vescId = vid,
               .commandType = (useCurrentControl ? vesc::vescPacketFlags::CURRENT
-                                                : vesc::vescPacketFlags::SETRPM),
+                                                : vesc::vescPacketFlags::DUTY),
               .commandValue = (useCurrentControl ? (float)MOTOR_NEUTRAL_ : signedMotorCommand)});
 
       comm_base_->write_to_device(msg);
@@ -186,14 +200,18 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
         (time_now - time_from_msg).count() <= CONTROL_LOOP_TIMEOUT_MS_) {
       
       /* compute motion targets (not using duty cycle input ATM) */
-      auto wheel_speeds = computeDifferentialWheelSpeeds(
-        (Control::robot_velocities){linear_vel_target, angular_vel_target}, robot_geometry_);
+      auto wheel_speeds = skid_control_->runMotionControl(
+          (Control::robot_velocities){.linear_velocity = linear_vel_target,
+                                      .angular_velocity = angular_vel_target},
+          (Control::motor_data){.fl = 0, .fr = 0, .rl = 0, .rr = 0},
+          (Control::motor_data){
+              .fl = rpm_FL, .fr = rpm_FR, .rl = rpm_BL, .rr = rpm_BR});
 
       
       
       /* compute velocities of robot from wheel rpms */
-      auto velocities = computeVelocitiesFromWheelspeeds((Control::motor_data){
-              .fl = rpm_FL, .fr = rpm_FR, .rl = rpm_BL, .rr = rpm_BR}, robot_geometry_);
+      auto velocities = skid_control_->getMeasuredVelocities((Control::motor_data){
+              .fl = rpm_FL, .fr = rpm_FR, .rl = rpm_BL, .rr = rpm_BR});
 
       /* update the main data structure with both commands and status */
       robotstatus_mutex_.lock();
@@ -208,10 +226,10 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
     } else {
 
       /* COMMAND THE ROBOT TO STOP */
-      auto wheel_speeds = computeDifferentialWheelSpeeds(
-        (Control::robot_velocities){0.0, 0.0}, robot_geometry_);
-      auto velocities = computeVelocitiesFromWheelspeeds((Control::motor_data){
-              .fl = rpm_FL, .fr = rpm_FR, .rl = rpm_BL, .rr = rpm_BR}, robot_geometry_);
+      auto wheel_speeds = skid_control_->runMotionControl(
+          {0, 0}, {0, 0, 0, 0}, {rpm_FL, rpm_FR, rpm_BL, rpm_BR});
+      auto velocities = skid_control_->getMeasuredVelocities((Control::motor_data){
+              .fl = rpm_FL, .fr = rpm_FR, .rl = rpm_BL, .rr = rpm_BR});
 
       /* update the main data structure with both commands and status */
       robotstatus_mutex_.lock();
@@ -225,52 +243,6 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
     }
     std::this_thread::sleep_for(std::chrono::milliseconds(sleeptime));
   }
-}
-
-Control::motor_data DifferentialRobot::computeDifferentialWheelSpeeds(Control::robot_velocities target_velocities,
-                                       Control::robot_geometry robot_geometry) {
-  /* travel rate(m/s) */
-  float left_travel_rate =
-      target_velocities.linear_velocity -
-      (0.5 * target_velocities.angular_velocity * robot_geometry.wheel_base);
-  float right_travel_rate =
-      target_velocities.linear_velocity +
-      (0.5 * target_velocities.angular_velocity * robot_geometry.wheel_base);
-
-  /* convert (m/s) -> rpm */
-  float left_wheel_speed =
-      (left_travel_rate / robot_geometry.wheel_radius) / RPM_TO_RADS_SEC;
-  float right_wheel_speed =
-      (right_travel_rate / robot_geometry.wheel_radius) / RPM_TO_RADS_SEC;
-
-  Control::motor_data returnstruct = {left_wheel_speed, right_wheel_speed,
-                             left_wheel_speed, right_wheel_speed};
-  return returnstruct;
-}
-
-Control::robot_velocities DifferentialRobot::computeVelocitiesFromWheelspeeds(
-    Control::motor_data wheel_speeds, Control::robot_geometry robot_geometry) {
-  float left_magnitude = (wheel_speeds.fl + wheel_speeds.rl) / 2;
-  float right_magnitude = (wheel_speeds.fr + wheel_speeds.rr) / 2;
-
-  float left_travel_rate =
-      left_magnitude * RPM_TO_RADS_SEC * robot_geometry.wheel_radius;
-  float right_travel_rate =
-      right_magnitude * RPM_TO_RADS_SEC * robot_geometry.wheel_radius;
-
-  /* difference between left and right travel rates */
-  float travel_differential = right_travel_rate - left_travel_rate;
-
-  /* compute velocities */
-  float linear_velocity = (right_travel_rate + left_travel_rate) / 2;
-  float angular_velocity =
-      travel_differential /
-      robot_geometry.wheel_base;  // possibly add traction factor here
-
-  Control::robot_velocities returnstruct;
-  returnstruct.linear_velocity = linear_velocity;
-  returnstruct.angular_velocity = angular_velocity;
-  return returnstruct;
 }
 
 }  // namespace RoverRobotics
