@@ -1,0 +1,2 @@
+#define SOCKET_CREATION_ERROR -1
+#define SOCKET_BIND_ERROR -2

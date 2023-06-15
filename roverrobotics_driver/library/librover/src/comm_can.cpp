@@ -6,8 +6,7 @@ CommCan::CommCan(const char *device,
                  std::vector<uint8_t> setting)
     : is_connected_(false) {
   if ((fd = socket(PF_CAN, SOCK_RAW, CAN_RAW)) < 0) {
-    // failed to create socket
-    throw(-1);
+    throw(SOCKET_CREATION_ERROR);
   }
   strcpy(ifr.ifr_name, device);
   ioctl(fd, SIOCGIFINDEX, &ifr);
@@ -15,8 +14,7 @@ CommCan::CommCan(const char *device,
   addr.can_ifindex = ifr.ifr_ifindex;
 
   if (bind(fd, (struct sockaddr *)&addr, sizeof(addr)) < 0) {
-    std::cerr << "error in socket bind" << std::endl;
-    throw(-2);
+    throw(SOCKET_BIND_ERROR);
   }
   // start read thread
   Can_read_thread_ = std::thread(

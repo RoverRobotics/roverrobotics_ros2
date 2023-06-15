@@ -17,6 +17,7 @@ typedef struct {
 enum vescPacketFlags : uint32_t {
   PACKET_FLAG = 0x80000000,
   RPM = 0x00000900,
+  SETRPM = 0x00000300,
   CURRENT = 0x00000100,
   DUTY = 0x00000000
 };
@@ -33,7 +34,7 @@ multiply values FROM VESC after receiving
 divide values TO VESC before sending
 */
 
-const float RPM_SCALING_FACTOR = 60.0 / 1000.0;
+const float RPM_SCALING_FACTOR = 1.0 / 15.0;
 const float DUTY_SCALING_FACTOR = 1.0 / 10.0;
 const float CURRENT_SCALING_FACTOR = 1.0 / 10.0;
 const float DUTY_COMMAND_SCALING_FACTOR = 100000.0;

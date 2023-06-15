@@ -1,0 +1,33 @@
+roverrobotics_driver:
+  ros__parameters:
+    # Robot Parameters
+    drivetrain: "4wd"   # 4wd, mecanum
+    robot_type: "mini"
+    comm_type: "can"
+    device_port: "can0" # "can0" for 4wd/mecanum | "internal" for 4wd/mecanum with blue-ox board
+    wheel_radius: 0.08255  # Wheel radius (meters)
+    wheel_base: 0.28575     # Distance between wheels side-to-side from the center of the wheel (meters)
+    robot_length: 0.2159   # Distance between wheels front-to-back from center of the wheel (meters)
+    gear_ratio: 1.0
+    control_frequency: 30 # Motor controller frequency in Hz
+    #linear_top_speed: 3.0 # Meters-per-second
+    #angular_top_speed: 3.0 # Radians-per-second
+    
+    # Diagnostics and Status
+    diagnostics_frequency: 0.2
+    odometry_frequency: 15.0
+    publish_tf: false
+    # robot_status_topic: "/"
+    # robot_status_frequency: 60.0
+    # robot_info_request_topic:
+    # robot_info_topic:
+    
+    # Topics and Frames
+    speed_topic: "/cmd_vel"
+    odom_topic: "/odometry/wheels"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link" # Set this to the base frame of the robot
+    # estop_trigger_topic:
+    # estop_reset_topic:
+    # trim_topic:
+    # estop_state:

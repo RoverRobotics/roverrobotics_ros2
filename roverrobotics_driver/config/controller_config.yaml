@@ -20,7 +20,7 @@ RIGHT_JOY_VERT:
   type: axis
   index: 4
   exclusion: [-0.15, 0.15]
-  scale: 0
+  scale: 50
   offset: 0
 RIGHT_TRIGGER:
   type: axis

@@ -146,7 +146,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
           device_port_.c_str(), comm_type_, control_mode_, pid_gains_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == -1) {
+      if (i == SOCKET_CREATION_ERROR) {
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
@@ -165,7 +165,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
           angular_scaling_params_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == -1) {
+      if (i == SOCKET_CREATION_ERROR) {
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
@@ -184,7 +184,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
           angular_scaling_params_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == -1) {
+      if (i == SOCKET_CREATION_ERROR) {
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
@@ -198,12 +198,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
   } else if (robot_type_ == "mini") {
     try {
-      robot_ = std::make_unique<MiniProtocolObject>(
-          device_port_.c_str(), comm_type_, control_mode_, pid_gains_,
-          angular_scaling_params_);
+      robot_ = std::make_unique<DifferentialRobot>(
+          device_port_.c_str(), wheel_radius, wheel_base, robot_length);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == -1) {
+      if (i == SOCKET_CREATION_ERROR) {
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),

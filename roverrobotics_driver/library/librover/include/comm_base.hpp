@@ -30,6 +30,9 @@
 
 #include "status_data.hpp"
 #include "utils.hpp"
+#include "global_error_constants.hpp"
+
+
 namespace RoverRobotics {
 class CommBase;
 }
