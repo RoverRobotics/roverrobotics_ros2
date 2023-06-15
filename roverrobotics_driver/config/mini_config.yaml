@@ -10,6 +10,9 @@ roverrobotics_driver:
     robot_length: 0.2159   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 1.0
     control_frequency: 30 # Motor controller frequency in Hz
+    motor_control_p_gain: 0.00048
+    motor_control_i_gain: 0.00000
+    motor_control_d_gain: 0.000005
     #linear_top_speed: 3.0 # Meters-per-second
     #angular_top_speed: 3.0 # Radians-per-second
     
