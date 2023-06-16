@@ -18,7 +18,6 @@
 #include "rclcpp/node_options.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/time.hpp"
-#include "rcppmath/rolling_mean_accumulator.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "std_msgs/msg/float32_multi_array.hpp"
@@ -37,9 +36,6 @@ class RobotDriver : public rclcpp::Node {
 
  private:
   // Default Values
-  using RollingMeanAccumulator = rcppmath::RollingMeanAccumulator<double>;
-  RollingMeanAccumulator linear_accumulator_;
-  RollingMeanAccumulator angular_accumulator_;
   const std::string ROBOT_STATUS_TOPIC_DEFAULT_ = "/robot_status";
   const float ROBOT_STATUS_FREQUENCY_DEFAULT_ = 60.0;
   const std::string ROBOT_INFO_REQUEST_TOPIC_DEFAULT_ = "/robot_info/request";
