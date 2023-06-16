@@ -7,10 +7,7 @@
 #include <cmath>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
-#include "protocol_mega.hpp"
-#include "protocol_mini.hpp"
 #include "protocol_pro.hpp"
-#include "protocol_pro_2.hpp"
 #include "protocol_zero_2.hpp"
 #include "differential_robot.hpp"
 #include "global_error_constants.hpp"
