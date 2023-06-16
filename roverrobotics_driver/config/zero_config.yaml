@@ -1,0 +1,36 @@
+roverrobotics_driver:
+  ros__parameters:
+    diagnostics_frequency: 0.2
+    odometry_frequency: 15.0
+    motor_control_p_gain: 0.0011
+    motor_control_i_gain: 0.000
+    motor_control_d_gain: 0.00008
+    publish_tf: true
+    # robot_status_topic: "/"
+    # robot_status_frequency: 60.0
+    # robot_info_request_topic:
+    # robot_info_topic:
+    robot_type: "zero2"
+    device_port: "/dev/rover-zero-v2"
+    comm_type: "serial"
+    speed_topic: "/cmd_vel"
+    # estop_trigger_topic:
+    # estop_reset_topic:
+    # trim_topic:
+    # estop_state:
+    control_mode: "OPEN_LOOP"
+    # linear_top_speed:
+    # angular_top_speed:
+    odom_topic: "/odom_raw"
+    # odom_frame_id:
+    # odom_child_frame_id:
+    # angular_a_coef:
+    # angular_b_coef:
+    # angular_c_coef:
+    # angular_min_scale:
+    # angular_max_scale:
+
+joint_state_publisher:
+  ros__parameters:
+    publish_default_positions: true
+    rate: 30
