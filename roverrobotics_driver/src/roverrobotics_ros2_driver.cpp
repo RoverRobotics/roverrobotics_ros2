@@ -1,8 +1,7 @@
 #include "roverrobotics_ros2_driver.hpp"
 using namespace RoverRobotics;
 
-RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_intra_process_comms(false)), linear_accumulator_(10),
-  angular_accumulator_(10){
+RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_intra_process_comms(false)){
   RCLCPP_INFO(get_logger(), "Starting Rover Driver node");
   // Robot
   robot_status_topic_ =
@@ -36,8 +35,6 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   float pi_i_ = declare_parameter("motor_control_i_gain", PID_I_DEFAULT_);
   float pi_d_ = declare_parameter("motor_control_d_gain", PID_D_DEFAULT_);
   
-  linear_accumulator_ = RollingMeanAccumulator(10);
-  angular_accumulator_ = RollingMeanAccumulator(10);
   // Odom
   pub_odom_tf_ = declare_parameter("publish_tf", PUB_ODOM_TF_DEFAULT_);
   odom_topic_ = declare_parameter("odom_topic", "/odom_raw");
@@ -315,11 +312,8 @@ void RobotDriver::update_odom() {
   dt = now_time - past_time;
   past_time = now_time;
   
-  linear_accumulator_.accumulate(robot_data_.linear_vel);
-  angular_accumulator_.accumulate(robot_data_.angular_vel);
-  
-  mean_linear = linear_accumulator_.getRollingMean();
-  mean_angular = angular_accumulator_.getRollingMean();
+  mean_linear = robot_data_.linear_vel;
+  mean_angular = robot_data_.angular_vel;
 
   // Calculate position
   if (past_time != 0)
