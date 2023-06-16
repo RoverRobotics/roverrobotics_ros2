@@ -132,22 +132,20 @@ void DifferentialRobot::register_comm_base(const char *device) {
   std::vector<uint8_t> setting;
   if (comm_type_ == "CAN") {
     try {
-      comm_base_ = std::make_unique<CommCan>(
-          device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
-          setting);
-    } catch (int i) {
-      throw(i);
-    }
-  } else if (comm_type_ == "UART") {
-    try {
-      comm_base_ = std::make_unique<CommSerial>(
-          device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
-          setting);
+      if(strcmp(device, "internal") != 0) {
+        comm_base_ = std::make_unique<CommCan>(
+            device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
+            setting);
+      } else {
+        comm_base_ = std::make_unique<CommCanSPI>(
+            device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
+            setting);
+      }  
     } catch (int i) {
       throw(i);
     }
   } else {
-    
+    throw(-2);
   }
 }
 
