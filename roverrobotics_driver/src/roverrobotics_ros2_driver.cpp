@@ -16,9 +16,9 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   robot_type_ = declare_parameter("robot_type", ROBOT_TYPE_DEFAULT_);
   device_port_ = declare_parameter("device_port", DEVICE_PORT_DEFAULT_);
   comm_type_ = declare_parameter("comm_type", COMM_TYPE_DEFAULT_);
-  wheel_radius_ = declare_parameter("wheel_radius", 0.1);
-  wheel_base_ = declare_parameter("wheel_base", 0.25);
-  robot_length_ = declare_parameter("robot_length", 0.25);
+  wheel_radius_ = declare_parameter("wheel_radius", WHEEL_RADIUS_DEFAULT_);
+  wheel_base_ = declare_parameter("wheel_base", WHEEL_BASE_DEFAULT_);
+  robot_length_ = declare_parameter("robot_length", ROBOT_LENGTH_DEFAULT_);
   // Drive
   speed_topic_ = declare_parameter("speed_topic", SPEED_TOPIC_DEFAULT_);
   estop_trigger_topic_ =
@@ -125,37 +125,32 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   // Init Pid
   if (control_mode_name_ == "TRACTION_CONTROL") {
     control_mode_ = Control::TRACTION_CONTROL;
-    RCLCPP_WARN(get_logger(),
+    RCLCPP_INFO(get_logger(),
                 "Control Mode is in TRACTION CONTROL; Drive with CAUTION");
-  } else if (control_mode_name_ == "INDEPENDENT_WHEEL") {
+  } else if (control_mode_name_ == "INDEPENDENT_WHEEL" || control_mode_name_ == "closed_loop") {
     control_mode_ = Control::INDEPENDENT_WHEEL;
-    RCLCPP_WARN(get_logger(),
-                "Control Mode is in INDEPENDENT WHEEL; Drive with CAUTION");
+    RCLCPP_INFO(get_logger(), "Robot is in closed loop mode.");
+    RCLCPP_INFO(get_logger(), "PID is at P:%.4f I:%.4f D:%.4f", pi_p_, pi_i_, pi_d_);
   } else {
     control_mode_ = Control::OPEN_LOOP;
-    RCLCPP_INFO(
-        get_logger(),
-        "Closed Loop Control is Disabled and Control Mode is in OPEN LOOP");
+    RCLCPP_INFO(get_logger(), "Closed Loop Control is Disabled and Control Mode is in OPEN LOOP");
   }
-  RCLCPP_INFO(get_logger(), "PID is at P:%.4f I:%.4f D:%.4f", pi_p_, pi_i_,
-              pi_d_);
   pid_gains_ = {pi_p_, pi_i_, pi_d_};
   // initialize connection to robot
-  RCLCPP_INFO(get_logger(),
-              "Attempting to connect to robot at %s", device_port_.c_str());
+  RCLCPP_INFO(get_logger(), "Connecting to robot at %s", device_port_.c_str());
   if (robot_type_ == "pro") {
     try {
       robot_ = std::make_unique<ProProtocolObject>(
           device_port_.c_str(), comm_type_, control_mode_, pid_gains_);
     } catch (int i) {
-      RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
+      RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
-        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
+        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Check that port is available and permissions allow access.", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
-                     "This Communication Method is not supported");
+                     "This communication method is not supported on this robot. Please check the config files.");
       } else {
-        RCLCPP_FATAL(get_logger(), "Unknown Error. Stopping This Node");
+        RCLCPP_FATAL(get_logger(), "Unknown Error Occurred. Please try power cycling.");
       }
       rclcpp::shutdown();
       return;
@@ -167,70 +162,32 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
           device_port_.c_str(), comm_type_, control_mode_, pid_gains_,
           angular_scaling_params_);
     } catch (int i) {
-      RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
+      RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
-        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
+        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Check that port is available and permissions allow access.", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
-                     "This Communication Method is not supported");
+                     "This communication method is not supported on this robot. Please check the config files.");
       } else {
-        RCLCPP_FATAL(get_logger(), "Unknown Error. Stopping This Node");
+        RCLCPP_FATAL(get_logger(), "Unknown Error Occurred. Please try power cycling.");
       }
       rclcpp::shutdown();
       return;
     }
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
-  } else if (robot_type_ == "pro2") {
-    try {
-      robot_ = std::make_unique<Pro2ProtocolObject>(
-          device_port_.c_str(), comm_type_, control_mode_, pid_gains_,
-          angular_scaling_params_);
-    } catch (int i) {
-      RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == SOCKET_CREATION_ERROR) {
-        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
-      } else if (i == -2) {
-        RCLCPP_FATAL(get_logger(),
-                     "This Communication Method is not supported");
-      } else {
-        RCLCPP_FATAL(get_logger(), "Unknown Error. Stopping This Node");
-      }
-      rclcpp::shutdown();
-      return;
-    }
-    RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
-  } else if (robot_type_ == "mini") {
+  } else if (robot_type_ == "mini" || robot_type_ == "miti") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
           device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
     } catch (int i) {
-      RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
+      RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
-        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
+        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Check that port is available and permissions allow access.", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
-                     "This Communication Method is not supported");
+                     "This communication method is not supported on this robot. Please check the config files.");
       } else {
-        RCLCPP_FATAL(get_logger(), "Unknown Error. Retrying connection");
-      }
-      rclcpp::shutdown();
-      return;
-    }
-    RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
-  } else if (robot_type_ == "mega") {
-    try {
-      robot_ = std::make_unique<MegaProtocolObject>(
-          device_port_.c_str(), comm_type_, control_mode_, pid_gains_,
-          angular_scaling_params_);
-    } catch (int i) {
-      RCLCPP_FATAL(get_logger(), "Trouble connecting to robot ");
-      if (i == -1) {
-        RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Stopping This Node", device_port_.c_str());
-      } else if (i == -2) {
-        RCLCPP_FATAL(get_logger(),
-                     "This Communication Method is not supported");
-      } else {
-        RCLCPP_FATAL(get_logger(), "Unknown Error. Retrying connection");
+        RCLCPP_FATAL(get_logger(), "Unknown Error Occurred. Please try power cycling.");
       }
       rclcpp::shutdown();
       return;
@@ -241,9 +198,6 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
                 "Robot Type is currently not suppported. Stopping this Node");
     rclcpp::shutdown();
   }
-  RCLCPP_INFO(get_logger(),
-              "Use 'ros2 param dump /roverrobotics_driver --print' to print "
-              "see all parameters running on this node");
 }
 
 void RobotDriver::publish_robot_info() {
@@ -251,7 +205,7 @@ void RobotDriver::publish_robot_info() {
   if (!robot_->is_connected()) {
     RCLCPP_FATAL(
         get_logger(),
-        "Didn't receive data from the Robot. SHUTTING DOWN THE DRIVER NODE");
+        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
   robot_data_ = robot_->info_request();
@@ -271,7 +225,7 @@ void RobotDriver::publish_robot_status() {
   if (!robot_->is_connected()) {
     RCLCPP_FATAL(
         get_logger(),
-        "Didn't receive data from the Robot. Stopping this Driver Node");
+        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
   // RCLCPP_INFO(get_logger(), "Updating Robot Status");
@@ -322,8 +276,7 @@ void RobotDriver::update_odom() {
   if (!robot_->is_connected()) {
     RCLCPP_FATAL(
         get_logger(),
-        "Didn't receive data from the Robot. Stopping this Driver Node");
-
+        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
   robot_data_ = robot_->status_request();
@@ -426,8 +379,7 @@ void RobotDriver::velocity_event_callback(
   if (!robot_->is_connected()) {
     RCLCPP_FATAL(
         get_logger(),
-        "Didn't receive data from the Robot. Stopping this Driver Node");
-
+        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
   static double speeddata[3];

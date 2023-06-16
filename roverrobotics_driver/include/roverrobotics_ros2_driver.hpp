@@ -69,6 +69,9 @@ class RobotDriver : public rclcpp::Node {
   const float ANGULAR_SCALING_C_DEFAULT_ = 0;
   const float ANGULAR_SCALING_MIN_DEFAULT_ = 1;
   const float ANGULAR_SCALING_MAX_DEFAULT_ = 1;
+  const float WHEEL_RADIUS_DEFAULT_ = 0.08255;
+  const float WHEEL_BASE_DEFAULT_ = 0.28575;
+  const float ROBOT_LENGTH_DEFAULT_ = 0.2159;
   // robot protocol pointer
   std::unique_ptr<BaseProtocolObject> robot_;
   // universal robot data structure
