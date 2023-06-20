@@ -24,4 +24,5 @@
 6) Provide better status messages on status topic including battery etc
 7) Create nice configs and launch files
 
-  
+## Branch and Release Style:
+Releases will be placed into their respective distribution branch (i.e. Humble release is in the humble branch). These are the stable branches that will (in the future) be released into the ros build farm. The main branch is the development branch. It may not be as stable as the release branches so please use caution. It is always recommended to pull from a release branch when installing.
