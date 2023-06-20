@@ -14,6 +14,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   robot_info_topic_ =
       declare_parameter("robot_info_topic", ROBOT_INFO_TOPIC_DEFAULT_);
   robot_type_ = declare_parameter("robot_type", ROBOT_TYPE_DEFAULT_);
+  drivetrain_ = declare_parameter("drivetrain", DRIVETRAIN_DEFAULT_);
   device_port_ = declare_parameter("device_port", DEVICE_PORT_DEFAULT_);
   comm_type_ = declare_parameter("comm_type", COMM_TYPE_DEFAULT_);
   wheel_radius_ = declare_parameter("wheel_radius", WHEEL_RADIUS_DEFAULT_);
@@ -177,8 +178,13 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
   } else if (robot_type_ == "mini" || robot_type_ == "miti") {
     try {
-      robot_ = std::make_unique<DifferentialRobot>(
-          device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+      if (drivetrain_ == "differential") {
+        robot_ = std::make_unique<DifferentialRobot>(
+            device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+      } else if (drivetrain_ == "mecanum") {
+        robot_ = std::make_unique<MecanumRobot>(
+            device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+      }
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
@@ -382,10 +388,11 @@ void RobotDriver::velocity_event_callback(
         "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
-  static double speeddata[3];
+  static double speeddata[4];
   speeddata[0] = msg->linear.x;
   speeddata[1] = msg->angular.z;
   speeddata[2] = msg->angular.y;
+  speeddata[3] = msg->linear.y;
   robot_->set_robot_velocity(speeddata);
 }
 

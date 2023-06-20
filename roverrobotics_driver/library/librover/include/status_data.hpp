@@ -50,10 +50,12 @@ struct robotData {
 
   // Robot Info
   double linear_vel;
+  double trans_vel;
   double angular_vel;
 
   // Velocity Info
   double cmd_linear_vel;
+  double cmd_trans_vel;
   double cmd_angular_vel;
   std::chrono::milliseconds cmd_ts;
 };

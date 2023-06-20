@@ -10,6 +10,7 @@
 #include "protocol_pro.hpp"
 #include "protocol_zero_2.hpp"
 #include "differential_robot.hpp"
+#include "mecanum_robot.hpp"
 #include "global_error_constants.hpp"
 
 #include "eigen3/Eigen/Dense"
@@ -45,6 +46,7 @@ class RobotDriver : public rclcpp::Node {
   const std::string ROBOT_INFO_REQUEST_TOPIC_DEFAULT_ = "/robot_info/request";
   const std::string ROBOT_INFO_TOPIC_DEFAULT_ = "/robot_info";
   const std::string ROBOT_TYPE_DEFAULT_ = "NONE";
+  const std::string DRIVETRAIN_DEFAULT_ = "differential";
   const std::string DEVICE_PORT_DEFAULT_ = "NONE";
   const std::string COMM_TYPE_DEFAULT_ = "NONE";
   const std::string SPEED_TOPIC_DEFAULT_ = "/cmd_vel/managed";
@@ -69,6 +71,7 @@ class RobotDriver : public rclcpp::Node {
   const float WHEEL_RADIUS_DEFAULT_ = 0.08255;
   const float WHEEL_BASE_DEFAULT_ = 0.28575;
   const float ROBOT_LENGTH_DEFAULT_ = 0.2159;
+  
   // robot protocol pointer
   std::unique_ptr<BaseProtocolObject> robot_;
   // universal robot data structure
@@ -108,6 +111,7 @@ class RobotDriver : public rclcpp::Node {
   std::string robot_info_request_topic_;
   std::string robot_info_topic_;
   std::string robot_type_;
+  std::string drivetrain_;
   std::string trim_topic_;
   std::string device_port_;
   std::string comm_type_;

@@ -137,9 +137,11 @@ void DifferentialRobot::register_comm_base(const char *device) {
             device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
             setting);
       } else {
+        /*
         comm_base_ = std::make_unique<CommCanSPI>(
             device, [this](std::vector<uint8_t> c) { unpack_comm_response(c); },
             setting);
+        */
       }  
     } catch (int i) {
       throw(i);
