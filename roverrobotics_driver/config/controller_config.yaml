@@ -2,7 +2,7 @@ LEFT_JOY_HORIZ:
   type: axis
   index: 0
   exclusion: [-0.15, 0.15]
-  scale: 1
+  scale: 1.25
   offset: 0
 LEFT_JOY_VERT:
   type: axis

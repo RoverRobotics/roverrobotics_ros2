@@ -11,7 +11,7 @@ joy_manager:
   data:
     linear:
       x: LEFT_JOY_VERT
-      y: 0
+      y: LEFT_JOY_HORIZ
       z: 0
     angular:
       x: 0
