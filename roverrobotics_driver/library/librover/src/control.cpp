@@ -64,13 +64,13 @@ motor_data computeMecanumWheelSpeeds(robot_velocities target_velocities,
 
   /* convert (m/s) -> rpm */
   float w_fl =
-      ((1.0 / robot_geometry.wheel_radius) * (vx - vy - (lx + ly))) * vw / RPM_TO_RADS_SEC;
+      ((1.0 / robot_geometry.wheel_radius) * (vx - vy - (lx + ly) * vw)) / RPM_TO_RADS_SEC;
   float w_fr =
-      ((1.0 / robot_geometry.wheel_radius) * (vx + vy + (lx + ly))) * vw / RPM_TO_RADS_SEC;
+      ((1.0 / robot_geometry.wheel_radius) * (vx + vy + (lx + ly) * vw)) / RPM_TO_RADS_SEC;
   float w_bl =
-      ((1.0 / robot_geometry.wheel_radius) * (vx + vy - (lx + ly))) * vw / RPM_TO_RADS_SEC;
+      ((1.0 / robot_geometry.wheel_radius) * (vx + vy - (lx + ly) * vw)) / RPM_TO_RADS_SEC;
   float w_br =
-      ((1.0 / robot_geometry.wheel_radius) * (vx - vy + (lx + ly))) * vw / RPM_TO_RADS_SEC;
+      ((1.0 / robot_geometry.wheel_radius) * (vx - vy + (lx + ly) * vw)) / RPM_TO_RADS_SEC;
 
   motor_data returnstruct = {w_fl, w_fr,
                              w_bl, w_br};
