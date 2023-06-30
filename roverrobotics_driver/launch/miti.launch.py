@@ -20,6 +20,7 @@ def generate_launch_description():
         name = 'roverrobotics_driver',
         executable = 'roverrobotics_driver',
         parameters = [hardware_config],
+        output='screen',
         respawn=True,
         respawn_delay=1
     )
