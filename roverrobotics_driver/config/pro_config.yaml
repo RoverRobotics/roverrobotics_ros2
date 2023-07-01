@@ -21,9 +21,9 @@ roverrobotics_driver:
     control_mode: "OPEN_LOOP"
     # linear_top_speed:
     # angular_top_speed:
-    odom_topic: "/odom_raw"
-    # odom_frame_id:
-    # odom_child_frame_id:
+    odom_topic: "/odometry/wheels"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link" # Set this to the base frame of the robot
     # angular_a_coef:
     # angular_b_coef:
     # angular_c_coef:
