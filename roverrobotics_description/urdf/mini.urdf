@@ -1,28 +1,144 @@
-<robot name="onshape">
-<link name="base_link">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_mini">
+    <xacro:property name="wheel_z_offset" value="0.081" />
+    <xacro:property name="wheel_x_offset" value="0.11" />
+    <xacro:property name="front_wheel_x_offset" value="0.006" />
+    <xacro:property name="wheel_y_offset" value="0.155" />
+    <xacro:property name="wheel_mass" value="3.62874" />
+    <xacro:property name="chassis_mass" value="1.36078" />
 
-<visual>
-<origin xyz="-0.020902668017054499422 0.012884325130974700127 0.020445113397917599046" rpy="0 -0 0" />
-<geometry>
-<mesh filename="package:///mini_solid.stl"/>
-</geometry>
-<material name="mini_solid_material">
-<color rgba="0.26274509803921569651 0.28235294117647058432 0.30196078431372547213 1.0"/>
-</material>
-</visual>
-<collision>
-<origin xyz="-0.020902668017054499422 0.012884325130974700127 0.020445113397917599046" rpy="0 -0 0" />
-<geometry>
-<mesh filename="package:///mini_solid.stl"/>
-</geometry>
-</collision>
+    <link name="base_link" />
 
-<inertial>
-<origin xyz="0 0 0" rpy="0 0 0"/>
-<mass value="8" />
-<inertia ixx="0" ixy="0"  ixz="0" iyy="0" iyz="0" izz="0" />
-</inertial>
-</link>
+
+    <link name="chassis_link">
+        <visual>
+            <origin xyz="0.01 0.02 0.0965" rpy="0 -0 1.5708" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/mini_chassis.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0.01 0.02 0.0965" rpy="0 -0 1.5708" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/mini_chassis.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0.01 0.02 0.0965" rpy="0 0 1.5708"/>
+            <mass value="${chassis_mass}" />
+            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+        </inertial>
+    </link>
+
+    <joint name="base_to_chassis" type="fixed">
+        <parent link="base_link"/>
+        <child link="chassis_link"/>
+    </joint>
+
+    <link name="fl_wheel_link">
+        <visual>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+        </inertial>
+    </link>
+    <joint name="fl_wheel_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="fl_wheel_link"/>
+    </joint>
+
+    <link name="fr_wheel_link">
+        <visual>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+        </inertial>
+    </link>
+    <joint name="fr_wheel_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="fr_wheel_link"/>
+    </joint>
+
+    <link name="rl_wheel_link">
+        <visual>
+            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+        </inertial>
+    </link>
+    <joint name="rl_wheel_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="rl_wheel_link"/>
+    </joint>
+
+    <link name="rr_wheel_link">
+        <visual>
+            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <geometry>
+                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+        </inertial>
+    </link>
+    <joint name="rr_wheel_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="rr_wheel_link"/>
+    </joint>
 
 
 </robot>
