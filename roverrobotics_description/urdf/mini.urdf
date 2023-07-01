@@ -8,7 +8,6 @@
 
     <link name="base_link" />
 
-
     <link name="chassis_link">
         <visual>
             <origin xyz="0.01 0.02 0.0965" rpy="0 -0 1.5708" />
