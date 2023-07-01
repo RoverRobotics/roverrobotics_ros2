@@ -24,9 +24,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0.104" rpy="1.57 0 3.1415"/>
+            <origin xyz="0 0 0.16" rpy="1.57 0 3.1415"/>
             <mass value="${chassis_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.028064" ixy="0"  ixz="0" iyy="0.08226" iyz="0" izz="0.10258" />
         </inertial>
     </link>
 
@@ -53,7 +53,7 @@
         <inertial>
             <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="fl_wheel_to_chassis" type="fixed">
@@ -79,7 +79,7 @@
         <inertial>
             <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="fr_wheel_to_chassis" type="fixed">
@@ -105,7 +105,7 @@
         <inertial>
             <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="rl_wheel_to_chassis" type="fixed">
@@ -131,7 +131,7 @@
         <inertial>
             <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="rr_wheel_to_chassis" type="fixed">

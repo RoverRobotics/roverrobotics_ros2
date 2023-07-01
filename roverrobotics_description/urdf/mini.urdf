@@ -25,9 +25,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0.01 0.02 0.0965" rpy="0 0 1.5708"/>
+            <origin xyz="0.0 0.00 0.1" rpy="1.5708 1.5708 1.5708"/>
             <mass value="${chassis_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.006453" ixy="0"  ixz="0" iyy="0.0117" iyz="0" izz="0.015812" />
         </inertial>
     </link>
 
@@ -52,9 +52,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="0 1.57 1.57" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="fl_wheel_to_chassis" type="fixed">
@@ -80,7 +80,7 @@
         <inertial>
             <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="fr_wheel_to_chassis" type="fixed">
@@ -106,7 +106,7 @@
         <inertial>
             <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="rl_wheel_to_chassis" type="fixed">
@@ -132,7 +132,7 @@
         <inertial>
             <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="1e-3" ixy="1e-3"  ixz="1e-3" iyy="1e-3" iyz="1e-3" izz="1e-3" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="rr_wheel_to_chassis" type="fixed">
