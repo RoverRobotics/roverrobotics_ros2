@@ -295,8 +295,8 @@ void RobotDriver::update_odom() {
   static double dt = 0;
   static double mean_linear = 0;
   static double mean_angular = 0;
-  float odom_covariance_0_ = 0.5;
-  float odom_covariance_35_ = 1.0;
+  // float odom_covariance_0_ = 0.5;
+  // float odom_covariance_35_ = 1.0;
   tf2::Quaternion q_new;
   
   odom.header.frame_id = odom_frame_id_;

@@ -5,7 +5,7 @@ project(roverrobotics_driver)
 add_compile_options(-std=c++17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-g -Wall -Wextra -Wpedantic)
+    add_compile_options(-g)
 endif()
 
 find_package(ament_cmake REQUIRED)

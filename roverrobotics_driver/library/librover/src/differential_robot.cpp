@@ -440,7 +440,7 @@ void DifferentialRobot::send_command(int sleeptime) {
           vid++) {
 
         robotstatus_mutex_.lock();
-        auto signedMotorCommand = motors_speeds_[vid];
+        float signedMotorCommand = motors_speeds_[vid];
 
         /* only use current control when robot is stopped to prevent wasted energy
         */
@@ -454,7 +454,7 @@ void DifferentialRobot::send_command(int sleeptime) {
                 .vescId = vid,
                 .commandType = (useCurrentControl ? vesc::vescPacketFlags::CURRENT
                                                   : vesc::vescPacketFlags::DUTY),
-                .commandValue = (useCurrentControl ? (float)MOTOR_NEUTRAL_ : signedMotorCommand)});
+                .commandValue = (useCurrentControl ? MOTOR_NEUTRAL_ : signedMotorCommand)});
 
         comm_base_->write_to_device(msg);
       }

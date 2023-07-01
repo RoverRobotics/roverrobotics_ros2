@@ -1,0 +1,28 @@
+<robot name="onshape">
+<link name="base_link">
+
+<visual>
+<origin xyz="-0.020902668017054499422 0.012884325130974700127 0.020445113397917599046" rpy="0 -0 0" />
+<geometry>
+<mesh filename="package:///mini_solid.stl"/>
+</geometry>
+<material name="mini_solid_material">
+<color rgba="0.26274509803921569651 0.28235294117647058432 0.30196078431372547213 1.0"/>
+</material>
+</visual>
+<collision>
+<origin xyz="-0.020902668017054499422 0.012884325130974700127 0.020445113397917599046" rpy="0 -0 0" />
+<geometry>
+<mesh filename="package:///mini_solid.stl"/>
+</geometry>
+</collision>
+
+<inertial>
+<origin xyz="0 0 0" rpy="0 0 0"/>
+<mass value="8" />
+<inertia ixx="0" ixy="0"  ixz="0" iyy="0" iyz="0" izz="0" />
+</inertial>
+</link>
+
+
+</robot>
