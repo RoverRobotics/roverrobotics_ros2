@@ -1,0 +1,10 @@
+# creates fixed name for rover serial communication
+# WARNING this will overwrite any FTDI device that have the similar signature
+# Install this udev with
+# sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules && sudo udevadm control --reload-rules && udevadm trigger
+
+# Rover ESC Udev Rules
+KERNEL=="ttyUSB[0-9]", ATTRS{idVendor}=="0403", ATTRS{serial}=="Rover Zero 2", MODE:="0777", SYMLINK+="rover-control", RUN+="/bin/setserial /dev/%k low_latency"
+KERNEL=="ttyUSB[0-9]", ATTRS{idVendor}=="0403", ATTRS{serial}=="Rover Pro", MODE:="0777", SYMLINK+="rover-pro", RUN+="/bin/setserial /dev/%k low_latency"
+KERNEL=="ttyUSB[0-9]", ATTRS{idVendor}=="10c4", ATTRS{serial}=="Rover Pro", MODE:="0777", SYMLINK+="rover-pro", RUN+="/bin/setserial /dev/%k low_latency"
+KERNEL=="ttyACM0[0-9]", ATTRS{idVendor}=="0483", MODE:="0777", SYMLINK+="rover-control", RUN+="/bin/setserial /dev/%k low_latency"

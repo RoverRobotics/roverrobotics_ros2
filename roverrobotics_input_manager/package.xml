@@ -5,7 +5,7 @@
     <version>0.1.1</version>
     <description>Contains Rover provided teleoperation applications.</description>
     <maintainer email="info@roverrobotics.com">Rover Robotics</maintainer>
-    <license>BSD-3-Clause</license>
+    <license>Apache-2.0</license>
 
     <author email="will@roverrobotics.com">William Rook</author>
     <author email="info@roverrobotics.com">Rover Robotics</author>
