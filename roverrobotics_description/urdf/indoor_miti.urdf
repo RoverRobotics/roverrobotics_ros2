@@ -56,9 +56,11 @@
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
-    <joint name="fl_wheel_to_chassis" type="fixed">
+    <joint name="fl_wheel_to_chassis" type="continuous">
         <parent link="chassis_link"/>
         <child link="fl_wheel_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0 0"/>
     </joint>
 
     <link name="fr_wheel_link">
@@ -82,9 +84,11 @@
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
-    <joint name="fr_wheel_to_chassis" type="fixed">
+    <joint name="fr_wheel_to_chassis" type="continuous">
         <parent link="chassis_link"/>
         <child link="fr_wheel_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0 0"/>
     </joint>
 
     <link name="rl_wheel_link">
@@ -108,9 +112,11 @@
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
-    <joint name="rl_wheel_to_chassis" type="fixed">
+    <joint name="rl_wheel_to_chassis" type="continuous">
         <parent link="chassis_link"/>
         <child link="rl_wheel_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0 0"/>
     </joint>
 
     <link name="rr_wheel_link">
@@ -134,9 +140,11 @@
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
     </link>
-    <joint name="rr_wheel_to_chassis" type="fixed">
+    <joint name="rr_wheel_to_chassis" type="continuous">
         <parent link="chassis_link"/>
         <child link="rr_wheel_link"/>
+        <axis xyz="0 1 0"/>
+        <origin xyz="0 0 0"/>
     </joint>
 
 
