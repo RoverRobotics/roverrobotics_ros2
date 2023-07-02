@@ -6,14 +6,14 @@
         <visual>
             <origin xyz="0 0.0115 0.2255" rpy="1.57 -0 1.57" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/rover_payload.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/rover_payload.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0.0115 0.2255" rpy="1.57 -0 1.57" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/rover_payload.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/rover_payload.dae"/>
             </geometry>
         </collision>
     </link>
