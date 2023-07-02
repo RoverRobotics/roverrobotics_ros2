@@ -37,21 +37,21 @@
 
     <link name="fl_wheel_link">
         <visual>
-            <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <mass value="${wheel_mass}" />
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
@@ -60,26 +60,26 @@
         <parent link="chassis_link"/>
         <child link="fl_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="0 0 0"/>
+        <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
     <link name="fr_wheel_link">
         <visual>
-            <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
@@ -88,26 +88,26 @@
         <parent link="chassis_link"/>
         <child link="fr_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="0 0 0"/>
+        <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
     <link name="rl_wheel_link">
         <visual>
-            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <mass value="${wheel_mass}" />
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
@@ -116,26 +116,26 @@
         <parent link="chassis_link"/>
         <child link="rl_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="0 0 0"/>
+        <origin xyz="${-wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
     <link name="rr_wheel_link">
         <visual>
-            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
                 <mesh filename="package://roverrobotics_description/meshes/hub_10in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <mass value="${wheel_mass}" />
             <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
         </inertial>
@@ -144,7 +144,7 @@
         <parent link="chassis_link"/>
         <child link="rr_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="0 0 0"/>
+        <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
 
