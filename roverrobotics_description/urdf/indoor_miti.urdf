@@ -2,7 +2,7 @@
     <xacro:property name="wheel_z_offset" value="0.081" />
     <xacro:property name="wheel_x_offset" value="0.1415" />
     <xacro:property name="wheel_y_offset" value="0.18" />
-    <xacro:property name="wheel_mass" value="4.53592" />
+    <xacro:property name="wheel_mass" value="3.62874" />
     <xacro:property name="chassis_mass" value="4.53592" />
 
     <link name="base_link" />
@@ -12,19 +12,19 @@
         <visual>
             <origin xyz="0 0 0.061" rpy="1.57 -0 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/miti_chassis.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/miti_chassis.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0 0.061" rpy="1.57 -0 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/miti_chassis.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/miti_chassis.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0.16" rpy="1.57 0 3.1415"/>
+            <origin xyz="0 0 0.12" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
             <inertia ixx="0.028064" ixy="0"  ixz="0" iyy="0.08226" iyz="0" izz="0.10258" />
         </inertial>
@@ -39,21 +39,21 @@
         <visual>
             <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="fl_wheel_to_chassis" type="continuous">
@@ -67,21 +67,21 @@
         <visual>
             <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="fr_wheel_to_chassis" type="continuous">
@@ -95,21 +95,21 @@
         <visual>
             <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="rl_wheel_to_chassis" type="continuous">
@@ -123,21 +123,21 @@
         <visual>
             <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </visual>
 
         <collision>
             <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="package://roverrobotics_description/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.008093" ixy="0"  ixz="0" iyy="0.014226" iyz="0" izz="0.008093" />
         </inertial>
     </link>
     <joint name="rr_wheel_to_chassis" type="continuous">
