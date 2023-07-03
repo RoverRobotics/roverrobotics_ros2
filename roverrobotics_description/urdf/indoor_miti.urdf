@@ -1,31 +1,36 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_miti">
+    <!-- Gazebo Version Arg - For using either classic or fortress -->
     <xacro:arg name="gazebo_version" default="classic" />
 
-    <xacro:property name="wheel_z_offset" value="0.081" />
+    <!-- Robot Parameters -->
+    <xacro:property name="wheel_z_offset" value="0.02" />
     <xacro:property name="wheel_x_offset" value="0.1415" />
     <xacro:property name="wheel_y_offset" value="0.18" />
     <xacro:property name="wheel_mass" value="3.62874" />
     <xacro:property name="chassis_mass" value="4.53592" />
 
-    <link name="base_link" />
+    <!-- Part Includes - Payload, Sensors, Etc.. -->
+    <xacro:include filename="$(find roverrobotics_description)/urdf/indoor_miti_payload.urdf" />
 
+    <!-- Robot Description -->
+    <link name="base_link" />
     <link name="chassis_link">
         <visual>
-            <origin xyz="0 0 0.061" rpy="1.57 -0 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 -0 3.1415" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/miti_chassis.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0 0 0.061" rpy="1.57 -0 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 -0 3.1415" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/miti_chassis.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0.12" rpy="0 0 0"/>
+            <origin xyz="0 0 0.059" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
             <inertia ixx="0.028064" ixy="0"  ixz="0" iyy="0.08226" iyz="0" izz="0.10258" />
         </inertial>
@@ -34,6 +39,7 @@
     <joint name="base_to_chassis" type="fixed">
         <parent link="base_link"/>
         <child link="chassis_link"/>
+        <origin xyz="0 0 0.061"/>
     </joint>
 
     <link name="fl_wheel_link">
@@ -152,6 +158,7 @@
         <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
+    <!-- Gazebo Plugins -->
     <xacro:if value="${'$(arg gazebo_version)' == 'classic'}">
         <gazebo>
         <plugin name="skid_drive_controller" filename="libgazebo_ros_diff_drive.so"> 

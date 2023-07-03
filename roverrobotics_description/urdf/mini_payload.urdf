@@ -1,16 +1,14 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_mini_payload">
-    
-    <xacro:include filename="$(find roverrobotics_description)/urdf/mini.urdf" />
 
     <link name="payload_link">
         <visual>
-            <origin xyz="0 0.0115 0.207" rpy="1.57 -0 1.57" />
+            <origin xyz="0 0.0115 0" rpy="1.57 -0 1.57" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/rover_payload.dae"/>
             </geometry>
         </visual>
         <collision>
-            <origin xyz="0 0.0115 0.207" rpy="1.57 -0 1.57" />
+            <origin xyz="0 0.0115 0" rpy="1.57 -0 1.57" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/rover_payload.dae"/>
             </geometry>
@@ -20,6 +18,7 @@
     <joint name="payload_to_chassis" type="fixed">
         <parent link="chassis_link"/>
         <child link="payload_link"/>
+        <origin xyz="0 0 0.1105"/>
     </joint>
 
 

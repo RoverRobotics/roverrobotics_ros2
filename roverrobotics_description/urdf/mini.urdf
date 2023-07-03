@@ -1,32 +1,38 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_mini">
+    <!-- Gazebo Version Arg - For using either classic or fortress -->
     <xacro:arg name="gazebo_version" default="classic" />
 
-    <xacro:property name="wheel_z_offset" value="0.081" />
+    <!-- Robot Parameters -->
+    <xacro:property name="wheel_z_offset" value="-0.0155" />
     <xacro:property name="wheel_x_offset" value="0.11" />
     <xacro:property name="front_wheel_x_offset" value="0.006" />
     <xacro:property name="wheel_y_offset" value="0.155" />
     <xacro:property name="wheel_mass" value="3.62874" />
     <xacro:property name="chassis_mass" value="1.36078" />
 
-    <link name="base_link" />
+    <!-- Part Includes - Payload, Sensors, Etc.. -->
+    <xacro:include filename="$(find roverrobotics_description)/urdf/mini_payload.urdf" />
 
+
+    <!-- Robot Description -->
+    <link name="base_link" />
     <link name="chassis_link">
         <visual>
-            <origin xyz="0.01 0.02 0.0965" rpy="0 -0 1.5708" />
+            <origin xyz="0.01 0.02 0" rpy="0 -0 1.5708" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0.01 0.02 0.0965" rpy="0 -0 1.5708" />
+            <origin xyz="0.01 0.02 0" rpy="0 -0 1.5708" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0.0 0.00 0.1" rpy="0 0 0"/>
+            <origin xyz="0.0 0.0 0.02" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
             <inertia ixx="0.006453" ixy="0"  ixz="0" iyy="0.0117" iyz="0" izz="0.015812" />
         </inertial>
@@ -35,6 +41,7 @@
     <joint name="base_to_chassis" type="fixed">
         <parent link="base_link"/>
         <child link="chassis_link"/>
+        <origin xyz="0 0 0.0965"/>
     </joint>
 
     <link name="fl_wheel_link">
@@ -153,6 +160,7 @@
         <origin xyz="${-wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}"/>
     </joint>
 
+    <!-- Gazebo Plugins -->
     <xacro:if value="${'$(arg gazebo_version)' == 'classic'}">
         <gazebo>
         <plugin name="skid_drive_controller" filename="libgazebo_ros_diff_drive.so"> 
