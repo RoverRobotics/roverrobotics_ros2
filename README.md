@@ -15,11 +15,11 @@
 
 ## Roadmap / To-Implement:
 
-1) Combine librover into this repo so you only have to install one package **DONE**
-2) Adjust librover to not repeat a ton of code. **DONE** (Still not pretty but better)
-	 - Make DifferentialDrive class that has wheel radius, base length, etc as parameters to use one unified controller **DONE**
-3) Provide better ROS based diagnostics for failures **IN PROGRESS**
-4) URDF and Simulation support **ADDED, Room for more improvements**
-5) Adjust control method to use VESC internal PID **ABANDONED, Control method was not viable**
-6) Provide better status messages on status topic including battery etc **PLANNED**
-7) Create nice configs and launch files **IN PROGRESS**
+1) Combine librover into this repo so you only have to install one package **[DONE]**
+2) Adjust librover to not repeat a ton of code. **[DONE]**
+	 - Make DifferentialDrive class that has wheel radius, base length, etc as parameters to use one unified controller **[DONE]**
+3) Provide better ROS based diagnostics for failures **[IN PROGRESS]**
+4) URDF and Simulation support **[ADDED, Room for more improvements]**
+5) Adjust control method to use VESC internal PID **[ABANDONED, Control method was not viable]**
+6) Provide better status messages on status topic including battery etc **[PLANNED]**
+7) Create nice configs and launch files **[IN PROGRESS]**
