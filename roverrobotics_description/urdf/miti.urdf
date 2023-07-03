@@ -5,8 +5,37 @@
     <xacro:property name="wheel_mass" value="4.53592" />
     <xacro:property name="chassis_mass" value="4.53592" />
 
-    <link name="base_link" />
+    <gazebo>
+        <plugin name="skid_drive_controller" filename="libgazebo_ros_diff_drive.so"> 
+            <num_wheel_pairs>2</num_wheel_pairs>
+            <!-- Wheel Information -->
+            <left_joint>rl_wheel_to_chassis</left_joint>
+            <left_joint>fl_wheel_to_chassis</left_joint>
+            <right_joint>rr_wheel_to_chassis</right_joint>
+            <right_joint>fr_wheel_to_chassis</right_joint>
+            <wheel_separation>0.4</wheel_separation>
+            <wheel_separation>0.4</wheel_separation>
+            <wheel_diameter>0.254</wheel_diameter>
+            <wheel_diameter>0.254</wheel_diameter>
 
+
+            <!-- Limits -->
+            <max_wheel_torque>12</max_wheel_torque>
+            <max_wheel_acceleration>10.0</max_wheel_acceleration>
+
+            
+            <!-- Output -->
+            <odometry_frame>odom</odometry_frame>
+            <robot_base_frame>base_link</robot_base_frame>
+
+            <publish_odom>true</publish_odom>
+            <publish_odom_tf>true</publish_odom_tf>
+            <publish_wheel_tf>true</publish_wheel_tf>
+
+        </plugin>
+    </gazebo>
+ 
+    <link name="base_link" />
 
     <link name="chassis_link">
         <visual>
@@ -26,7 +55,7 @@
         <inertial>
             <origin xyz="0 0 0.16" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
-            <inertia ixx="0.028064" ixy="0"  ixz="0" iyy="0.08226" iyz="0" izz="0.10258" />
+            <inertia ixx="0.028064" ixy="0.0"  ixz="0.0" iyy="0.08226" iyz="0.0" izz="0.10258" />
         </inertial>
     </link>
 
@@ -53,7 +82,7 @@
         <inertial>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="fl_wheel_to_chassis" type="continuous">
@@ -81,7 +110,7 @@
         <inertial>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="fr_wheel_to_chassis" type="continuous">
@@ -109,7 +138,7 @@
         <inertial>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="rl_wheel_to_chassis" type="continuous">
@@ -137,7 +166,7 @@
         <inertial>
             <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0"  ixz="0" iyy="0.03629" iyz="0" izz="0.01937" />
+            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
         </inertial>
     </link>
     <joint name="rr_wheel_to_chassis" type="continuous">
