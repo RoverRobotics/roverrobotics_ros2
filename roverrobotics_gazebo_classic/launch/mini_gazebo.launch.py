@@ -5,7 +5,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -15,7 +15,7 @@ def generate_launch_description():
     # Create the launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
     urdf = os.path.join(get_package_share_directory(
-        'roverrobotics_description'), 'urdf', 'indoor_miti_payload.urdf')
+        'roverrobotics_description'), 'urdf', 'mini_payload.urdf')
     world = LaunchConfiguration('world')
 
     robot_desc = ParameterValue(Command(['xacro ', urdf]),
@@ -31,8 +31,8 @@ def generate_launch_description():
         default_value='cafe.world',
         description='World file to use in Gazebo')
     
-    gazebo_world = os.path.join(
-        get_package_share_directory('roverrobotics_gazebo'), 'worlds', world)
+    gazebo_world = PathJoinSubstitution([
+        get_package_share_directory('roverrobotics_gazebo'), 'worlds', world])
 
     # Include the Gazebo launch file
     gazebo = IncludeLaunchDescription(
@@ -45,7 +45,7 @@ def generate_launch_description():
     spawn_entity = Node(
         package='gazebo_ros',
         executable='spawn_entity.py',
-        arguments=['-entity', 'rover_indoor_miti', '-topic', 'robot_description'],
+        arguments=['-entity', 'rover_mini', '-z', '0.1', '-topic', 'robot_description'],
         parameters=[{'use_sim_time': use_sim_time}],
         output='screen')
 
