@@ -10,7 +10,8 @@
     <xacro:property name="chassis_mass" value="4.53592" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
-    <xacro:include filename="$(find roverrobotics_description)/urdf/miti_payload.urdf" />
+    <xacro:property name="payload_z_offset" value="0.156" />
+    <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
 
 
     <!-- Robot Definition -->
@@ -228,5 +229,34 @@
             </plugin>
         </gazebo>
     </xacro:if>
+
+    <gazebo reference="fl_wheel_link">
+        <mu1 value="200.0" />
+        <mu2 value="200.0" />
+        <kp  value="1000000.0" />
+        <kd  value="1.0" />
+        <minDepth>0.005</minDepth>
+    </gazebo>
+    <gazebo reference="fr_wheel_link">
+        <mu1 value="200.0" />
+        <mu2 value="200.0" />
+        <kp  value="1000000.0" />
+        <kd  value="1.0" />
+        <minDepth>0.005</minDepth>
+    </gazebo>
+    <gazebo reference="rl_wheel_link">
+        <mu1 value="200.0" />
+        <mu2 value="200.0" />
+        <kp  value="1000000.0" />
+        <kd  value="1.0" />
+        <minDepth>0.005</minDepth>
+    </gazebo>
+    <gazebo reference="rr_wheel_link">
+        <mu1 value="200.0" />
+        <mu2 value="200.0" />
+        <kp  value="1000000.0" />
+        <kd  value="1.0" />
+        <minDepth>0.005</minDepth>
+    </gazebo>
 
 </robot>
