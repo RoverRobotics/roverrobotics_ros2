@@ -4,7 +4,7 @@ imu_filter_madgwick:
     use_mag: false
     publish_tf: true
     reverse_tf: false
-    fixed_frame: "camera_link"
+    fixed_frame: "payload_link"
     constant_dt: 0.005
     publish_debug_topics: false
     world_frame: "enu"
@@ -13,4 +13,4 @@ imu_filter_madgwick:
     mag_bias_x: 0.0
     mag_bias_y: 0.0
     mag_bias_z: 0.0
-    orientation_stddev: 1.0
+    orientation_stddev: 0.1

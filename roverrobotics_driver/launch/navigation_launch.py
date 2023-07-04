@@ -21,7 +21,7 @@ from launch.actions import (DeclareLaunchArgument, GroupAction,
                             IncludeLaunchDescription, SetEnvironmentVariable)
 from launch.conditions import IfCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.substitutions import LaunchConfiguration, PythonExpression
+from launch.substitutions import LaunchConfiguration, PythonExpression, PathJoinSubstitution
 from launch_ros.actions import Node
 from launch_ros.actions import PushRosNamespace
 from nav2_common.launch import RewrittenYaml
@@ -45,6 +45,7 @@ def generate_launch_description():
     use_respawn = LaunchConfiguration('use_respawn')
     log_level = LaunchConfiguration('log_level')
     slam_params_file = LaunchConfiguration('slam_params_file')
+    map_file = LaunchConfiguration('map_file_name')
 
     # Map fully qualified names to relative ones so the node's namespace can be prepended.
     # In case of the transforms (tf), currently, there doesn't seem to be a better alternative
@@ -171,11 +172,20 @@ def generate_launch_description():
         default_value=os.path.join(get_package_share_directory("roverrobotics_driver"),
                                    'config/slam_configs', 'mapper_params_localization.yaml'),
         description='Full path to the ROS2 parameters file to use for the slam_toolbox node')
+    
+    declare_slam_map_file_cmd = DeclareLaunchArgument(
+        'map_file_name',
+        default_value='maze_map',
+        description='Full path to the ROS2 parameters file to use for the slam_toolbox node')
+    
+    map_file_arg = PathJoinSubstitution([
+        get_package_share_directory('roverrobotics_driver'), 'maps', map_file])
 
     start_async_slam_toolbox_node = Node(
         parameters=[
           slam_params_file,
-          {'use_sim_time': use_sim_time}
+          {'use_sim_time': use_sim_time},
+          {'map_file_name': map_file_arg}
         ],
         package='slam_toolbox',
         executable='localization_slam_toolbox_node',
@@ -187,6 +197,7 @@ def generate_launch_description():
     
     # Add slam setup to launch description
     ld.add_action(declare_slam_params_file_cmd)
+    ld.add_action(declare_slam_map_file_cmd)
 
     # Set environment variables
     ld.add_action(stdout_linebuf_envvar)

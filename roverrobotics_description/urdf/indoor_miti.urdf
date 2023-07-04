@@ -222,7 +222,7 @@
                 <!-- Topics -->
                 <topic>/cmd_vel</topic>
                 <odom_topic>/odometry/wheels</odom_topic>
-                <tf_topic>/tf</tf_topic>
+                <tf_topic>/tf_gazebo</tf_topic>
 
             </plugin>
 
