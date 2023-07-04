@@ -60,10 +60,11 @@ def generate_launch_description():
         executable="parameter_bridge",
         arguments=[
             "/cmd_vel@geometry_msgs/msg/Twist@ignition.msgs.Twist",
-            "/clock@rosgraph_msgs/msg/Clock[ignition.msgs.Clock",
-            "/odom@nav_msgs/msg/Odometry[ignition.msgs.Odometry",
-            "/tf@tf2_msgs/msg/TFMessage[ignition.msgs.Pose_V",
-            '/joint_states@sensor_msgs/msg/JointState[gz.msgs.Model',
+            "/clock@rosgraph_msgs/msg/Clock@ignition.msgs.Clock",
+            "/odometry/wheels@nav_msgs/msg/Odometry@ignition.msgs.Odometry",
+            "/tf@tf2_msgs/msg/TFMessage@ignition.msgs.Pose_V",
+            '/joint_states@sensor_msgs/msg/JointState@gz.msgs.Model',
+            '/scan@sensor_msgs/msg/LaserScan@gz.msgs.LaserScan',
         ],
     )
 
