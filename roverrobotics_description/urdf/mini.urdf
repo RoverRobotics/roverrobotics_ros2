@@ -16,6 +16,7 @@
     <xacro:property name="payload_z_offset" value="0.1105" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rplidar_s2.urdf" />
+    <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/imu.urdf" />
 
     <!-- Robot Description -->
     <link name="base_link" />
