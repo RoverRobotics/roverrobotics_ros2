@@ -1,60 +1,60 @@
-amcl:
-  ros__parameters:
-    use_sim_time: False
-    alpha1: 0.3
-    alpha2: 0.3
-    alpha3: 0.3
-    alpha4: 0.3
-    alpha5: 0.3
-    always_reset_initial_pose: false
-    base_frame_id: base_link
-    beam_skip_distance: 0.5
-    beam_skip_error_threshold: 0.9
-    beam_skip_threshold: 0.3
-    do_beamskip: true
-    first_map_only: true
-    global_frame_id: map
-    initial_pose:
-      x: 0.0
-      y: 0.0
-      yaw: 0.0
-      z: 0.0
-    lambda_short: 0.1
-    laser_likelihood_max_dist: 4.0
-    laser_max_range: 100.0
-    laser_min_range: -1.0
-    laser_model_type: beam
-    map_topic: map
-    max_beams: 60
-    max_particles: 2000
-    min_particles: 500
-    odom_frame_id: odom
-    pf_err: 0.05
-    pf_z: 0.99
-    qos_overrides:
-      /tf:
-        publisher:
-          depth: 100
-          durability: volatile
-          history: keep_last
-          reliability: reliable
-    recovery_alpha_fast: 0.0
-    recovery_alpha_slow: 0.0
-    resample_interval: 1
-    robot_model_type: nav2_amcl::DifferentialMotionModel
-    save_pose_rate: 0.2
-    scan_topic: scan
-    set_initial_pose: false
-    sigma_hit: 0.1
-    tf_broadcast: false
-    transform_tolerance: 1.2
-    update_min_a: 0.2
-    update_min_d: 0.25
-    use_sim_time: false
-    z_hit: 1.2
-    z_max: 0.05
-    z_rand: 0.5
-    z_short: 0.05
+# amcl:
+#   ros__parameters:
+#     use_sim_time: False
+#     alpha1: 0.3
+#     alpha2: 0.3
+#     alpha3: 0.3
+#     alpha4: 0.3
+#     alpha5: 0.3
+#     always_reset_initial_pose: false
+#     base_frame_id: base_link
+#     beam_skip_distance: 0.5
+#     beam_skip_error_threshold: 0.9
+#     beam_skip_threshold: 0.3
+#     do_beamskip: true
+#     first_map_only: true
+#     global_frame_id: map
+#     initial_pose:
+#       x: 0.0
+#       y: 0.0
+#       yaw: 0.0
+#       z: 0.0
+#     lambda_short: 0.1
+#     laser_likelihood_max_dist: 4.0
+#     laser_max_range: 100.0
+#     laser_min_range: -1.0
+#     laser_model_type: beam
+#     map_topic: map
+#     max_beams: 60
+#     max_particles: 2000
+#     min_particles: 500
+#     odom_frame_id: odom
+#     pf_err: 0.05
+#     pf_z: 0.99
+#     qos_overrides:
+#       /tf:
+#         publisher:
+#           depth: 100
+#           durability: volatile
+#           history: keep_last
+#           reliability: reliable
+#     recovery_alpha_fast: 0.0
+#     recovery_alpha_slow: 0.0
+#     resample_interval: 1
+#     robot_model_type: nav2_amcl::DifferentialMotionModel
+#     save_pose_rate: 0.2
+#     scan_topic: scan
+#     set_initial_pose: false
+#     sigma_hit: 0.1
+#     tf_broadcast: false
+#     transform_tolerance: 1.2
+#     update_min_a: 0.2
+#     update_min_d: 0.25
+#     use_sim_time: false
+#     z_hit: 1.2
+#     z_max: 0.05
+#     z_rand: 0.5
+#     z_short: 0.05
 
 
 bt_navigator:

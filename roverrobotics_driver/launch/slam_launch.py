@@ -13,12 +13,9 @@ from launch_ros.actions import Node
 
 
 def generate_launch_description():
-    ld = LaunchDescription()
     
     rl_launch_path = os.path.join(get_package_share_directory("roverrobotics_driver"), 'launch', 'robot_localizer.launch.py')
     robot_localizer_launch = IncludeLaunchDescription(PythonLaunchDescriptionSource(rl_launch_path))
-    
-    #ld.add_action(robot_localizer_launch)
     
     # Slam toolbox launch setup
     use_sim_time = LaunchConfiguration('use_sim_time')
@@ -43,6 +40,11 @@ def generate_launch_description():
         executable='async_slam_toolbox_node',
         name='slam_toolbox',
         output='screen')
+
+    ld = LaunchDescription()
+
+    # Add localization to launch description
+    ld.add_action(robot_localizer_launch)
 
     # Add slam setup to launch description
     ld.add_action(declare_use_sim_time_argument)
