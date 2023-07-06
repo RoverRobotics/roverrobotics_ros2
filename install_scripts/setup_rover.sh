@@ -1,25 +1,7 @@
 #!/bin/sh
 ROS_DISTRO=humble
-LIBMPSSE_REPO=https://github.com/jackarivera/libmpsse.git
 ROVER_REPO=https://github.com/RoverRobotics/ros2_roverrobotics_development.git
 
-# Installs the necessary components
-echo "Installing dependencies.."
-sudo apt install git -y
-sudo apt install can-utils net-tools openssh-server -y
-sudo apt install swig libftdi-dev -y
-echo "Dependencies installed."
-
-
-# Download and install libmpsse
-echo "Installing libmpsse dependency.."
-cd ~/Documents
-git clone $LIBMPSSE_REPO
-cd src
-./configure --disable-python
-make
-make install
-echo "Installed libmpsse."
 
 # ROS Packages
 echo "Installing ROS packages.."

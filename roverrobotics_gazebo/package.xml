@@ -3,7 +3,7 @@
 <package format="3">
   <name>roverrobotics_gazebo</name>
   <version>0.2.0</version>
-  <description>Rover Gazebo Simulation Package</description>
+  <description>Rover Ignition Gazebo Simulation Package</description>
   <maintainer email="jack@roverrobotics.com">Jack Rivera</maintainer>
   <license>Apache-2.0</license>
 
@@ -14,8 +14,9 @@
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
   
-  <exec_depend>gazebo_plugins</exec_depend>
-  <exec_depend>gazebo_ros</exec_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>xacro</exec_depend>
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>roverrobotics_description</exec_depend>
 
