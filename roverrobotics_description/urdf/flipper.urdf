@@ -1,4 +1,4 @@
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_miti">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_flipper">
 
     <!-- Robot Parameters -->
     <xacro:property name="wheel_z_offset" value="0.020" />
@@ -6,8 +6,8 @@
     <xacro:property name="front_flipper_x_offset" value="-0.0035" />
     <xacro:property name="flipper_y_offset" value="0.18" />
     <xacro:property name="track_y_offset" value="0.11" />
-    <xacro:property name="wheel_mass" value="4.53592" />
-    <xacro:property name="chassis_mass" value="4.53592" />
+    <xacro:property name="wheel_mass" value="1.2" /> <!-- Flipper weight -->
+    <xacro:property name="chassis_mass" value="6.5" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
     <!-- Comment or Uncomment any of these to add them to the dev payload -->
@@ -28,14 +28,14 @@
         </visual>
 
         <collision>
-            <origin xyz="0 0 0" rpy="1.57 -0 3.1415" />
+            <origin xyz="0 0 0" rpy="1.57 -0 1.57" />
             <geometry>
                 <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_chassis.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0.056" rpy="0 0 0"/>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
             <inertia ixx="0.028064" ixy="0.0"  ixz="0.0" iyy="0.08226" iyz="0.0" izz="0.10258" />
         </inertial>
@@ -61,13 +61,6 @@
                 <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
             </geometry>
         </collision>
-
-        <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
-        </inertial>
-        <mu>5.0</mu>
     </link>
     <joint name="left_track_to_chassis" type="fixed">
         <parent link="chassis_link"/>
@@ -89,13 +82,6 @@
                 <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
             </geometry>
         </collision>
-
-        <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
-        </inertial>
-        <mu>5.0</mu>
     </link>
     <joint name="right_track_to_chassis" type="fixed">
         <parent link="chassis_link"/>
@@ -119,9 +105,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
+            <origin xyz="0 0.01 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -147,9 +133,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
+            <origin xyz="0 -0.01 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -175,9 +161,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
+            <origin xyz="0 0.01 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -203,9 +189,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0 0" rpy="0 0 0" />
+            <origin xyz="0 -0.01 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.01937" ixy="0.0"  ixz="0.0" iyy="0.03629" iyz="0.0" izz="0.01937" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -214,13 +200,5 @@
         <child link="bl_flipper_link"/>
         <origin xyz="${-flipper_x_offset} ${flipper_y_offset} 0"/>
     </joint>
-    
-
-    <!-- Gazebo Plugins -->
-    <gazebo>
-        <plugin filename="ignition-gazebo-joint-state-publisher-system" name="ignition::gazebo::systems::JointStatePublisher">
-            <topic>/joint_states</topic>
-        </plugin>
-    </gazebo>
 
 </robot>
