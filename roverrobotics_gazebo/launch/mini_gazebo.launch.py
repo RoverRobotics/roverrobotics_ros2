@@ -18,7 +18,7 @@ def generate_launch_description():
         'roverrobotics_description'), 'urdf', 'mini.urdf')
     world = LaunchConfiguration('world')
 
-    robot_desc = ParameterValue(Command(['xacro ', urdf, ' gazebo_version:=ignition']),
+    robot_desc = ParameterValue(Command(['xacro ', urdf]),
                                        value_type=str)
     
     declare_use_sim_time_cmd = DeclareLaunchArgument(
