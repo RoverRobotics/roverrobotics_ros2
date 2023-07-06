@@ -32,7 +32,7 @@ def generate_launch_description():
         description='World file to use in Gazebo')
     
     gz_world_arg = PathJoinSubstitution([
-        get_package_share_directory('roverrobotics_gz_sim'), 'worlds', world])
+        get_package_share_directory('roverrobotics_gazebo'), 'worlds', world])
 
     # Include the gz sim launch file  
     gz_sim_share = get_package_share_directory("ros_gz_sim")
