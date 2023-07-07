@@ -8,6 +8,8 @@
     <xacro:property name="castor_y_offset" value="0.169" />
     <xacro:property name="castor_z_offset" value="-0.05" />
     <xacro:property name="wheel_mass" value="1.25" /> 
+    <xacro:property name="castor_mass" value="0.2" /> 
+    <xacro:property name="castor_housing_mass" value="0.35" /> 
     <xacro:property name="chassis_mass" value="6.5" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
@@ -63,9 +65,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <inertia ixx="0.005645" ixy="0.0"  ixz="0.0" iyy= "0.01008" iyz="0.0" izz="0.005645"/>
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -92,9 +94,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
             <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <inertia ixx="0.005645" ixy="0.0"  ixz="0.0" iyy= "0.01008" iyz="0.0" izz="0.005645"/>
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -121,9 +123,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="${castor_housing_mass}" />
+            <inertia ixx="0.0003187" ixy="0.0"  ixz="0.0" iyy="0.0003187" iyz="0.0" izz="0.0001764" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -149,9 +151,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="${castor_mass}" />
+            <inertia ixx="0.00013978" ixy="0.0"  ixz="0.0" iyy="0.00025806" iyz="0.0" izz="0.00013978" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -179,9 +181,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="${castor_housing_mass}" />
+            <inertia ixx="0.0003187" ixy="0.0"  ixz="0.0" iyy="0.0003187" iyz="0.0" izz="0.0001764" />
         </inertial>
         <mu>5.0</mu>
     </link>
@@ -207,9 +209,9 @@
         </collision>
 
         <inertial>
-            <origin xyz="0 0.01 0" rpy="0 0 0" />
-            <mass value="${wheel_mass}" />
-            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <mass value="${castor_mass}" />
+            <inertia ixx="0.00013978" ixy="0.0"  ixz="0.0" iyy="0.00025806" iyz="0.0" izz="0.00013978" />
         </inertial>
         <mu>5.0</mu>
     </link>
