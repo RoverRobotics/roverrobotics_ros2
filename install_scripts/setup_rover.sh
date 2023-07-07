@@ -4,28 +4,43 @@ ROVER_REPO=https://github.com/RoverRobotics/ros2_roverrobotics_development.git
 
 # Define the install_ros_packages function
 install_ros_packages() {
+    error_count=0
     echo "Installing ROS packages.."
     sudo apt-get install -y ros-$ROS_DISTRO-slam-toolbox > /dev/null
     if [ $? -ne 0 ]; then
-        echo "Error encountered while installing ros-$ROS_DISTRO-slam-toolbox. Exiting..."
-        exit 1
+        echo "Error encountered while installing ros-$ROS_DISTRO-slam-toolbox."
+        error_count=$((error_count+1))
     fi
     sudo apt-get install -y ros-$ROS_DISTRO-navigation2 > /dev/null
     if [ $? -ne 0 ]; then
-        echo "Error encountered while installing ros-$ROS_DISTRO-navigation2. Exiting..."
-        exit 1
+        echo "Error encountered while installing ros-$ROS_DISTRO-navigation2."
+        error_count=$((error_count+1))
     fi
     sudo apt-get install -y ros-$ROS_DISTRO-nav2-bringup > /dev/null
     if [ $? -ne 0 ]; then
-        echo "Error encountered while installing ros-$ROS_DISTRO-nav2-bringup. Exiting..."
-        exit 1
+        echo "Error encountered while installing ros-$ROS_DISTRO-nav2-bringup."
+        error_count=$((error_count+1))
     fi
-    sudo apt-get install -y ros-$ROS_DISTRO-imu-tools > /dev/null
+    sudo apt-get install -y ros-$ROS_DISTRO-joint-state-publisher > /dev/null
     if [ $? -ne 0 ]; then
-        echo "Error encountered while installing ros-$ROS_DISTRO-imu-tools. Exiting..."
-        exit 1
+        echo "Error encountered while installing ros-$ROS_DISTRO-joint-state-publisher."
+        error_count=$((error_count+1))
     fi
-    echo "Finished installing ROS packages successfully."
+    sudo apt-get install -y ros-$ROS_DISTRO-xacro > /dev/null
+    if [ $? -ne 0 ]; then
+        echo "Error encountered while installing ros-$ROS_DISTRO-xacro."
+        error_count=$((error_count+1))
+    fi
+    if [ $error_count -gt 0 ]; then
+        echo "Finished installing ROS packages with $error_count error(s)."
+        echo "Check that ROS2 is installed correctly and repository sources are correct."
+        echo ""
+        return 1
+    else
+        echo "Finished installing ROS packages successfully."
+        echo ""
+        return 0
+    fi
 }
 
 clear
