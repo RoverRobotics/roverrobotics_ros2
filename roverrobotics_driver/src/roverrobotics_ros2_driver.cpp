@@ -185,7 +185,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Check that port is available and permissions allow access.", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
-                     "Error in the socket bind. Either could not find or access %s. Please check the device exists and has correct permissions." device_port_.c_str());
+                     "Error in the socket bind. Either could not find or access %s. Please check the device exists and has correct permissions.", device_port_.c_str());
       } else {
         RCLCPP_FATAL(get_logger(), "Unknown Error Occurred. Please try power cycling.");
       }
