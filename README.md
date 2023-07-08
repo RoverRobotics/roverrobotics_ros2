@@ -8,54 +8,34 @@
 
 - This is built on top of the old roverrobotics_ros2 driver. It is designed specifically to fix many reoccuring bugs that we faced with the old driver and implement new features.
 
-- This driver is very much so in the development and beta stages. Please report any issues that you face so we can create a stable release.
-
-  
-
-## Roadmap / To-Implement:
-
-1) Combine librover into this repo so you only have to install one package **[DONE]**
-2) Adjust librover to not repeat a ton of code. **[DONE]**
-	 - Make DifferentialDrive class that has wheel radius, base length, etc as parameters to use one unified controller **[DONE]**
-3) Provide better ROS based diagnostics for failures **[IN PROGRESS]**
-4) URDF and Simulation support **[ADDED, Room for more improvements]**
-5) Adjust control method to use VESC internal PID **[ABANDONED, Control method was not viable]**
-6) Provide better status messages on status topic including battery etc **[PLANNED]**
-7) Create nice configs and launch files **[IN PROGRESS]**
+- While this driver will constantly be changing on the main branch, we have released a stable humble branch! Stable releases will be released for their respective ROS2 version (I.e. Our packages for humble and that are stable are released into the humble branch of this repository).
 
 
 ## Installation:
 Installation is made simple through two options:
 
-The first step is to clone the repository into a ROS2 workspace. 
-```
-cd <ros2_ws>/src
-git clone https://github.com/RoverRobotics/ros2_roverrobotics_development.git -b ${ROS_DISTRO}
-cd ..
-```
-
 #### ``(Recommended)``Option 1: Using the provided install script in the ``install_scripts`` folder
 
-Please navigate to the ``install_scripts`` folder:
+Clone this repo: (https://github.com/RoverRobotics/rover_install_scripts_ros2)[https://github.com/RoverRobotics/rover_install_scripts_ros2]
+Then, follow the instructions in the setup script.
+```
+git clone https://github.com/RoverRobotics/rover_install_scripts_ros2
+cd rover_install_scripts_ros2
+sudo chmod 777 setup_rover.sh
+./setup_rover.sh
 
-``cd install_scripts``
-
-This script requires read/write privileges:
-``sudo chmod 777 setup_rover.sh``
-
-Finally run the install script by:
-``./setup_rover.sh``
-
-This install script will ask you which robot you wish to install and additionally asks if you want to create a roverrobotics.service for that robot. This service automatically starts on computer boot up and runs our robot driver. If you do not wish for it to automatically start, please decline the service creation.
+This install script will ask you which robot you wish to install and additionally asks if you want to create a roverrobotics.service, setup udev rules, etc. The service automatically starts on computer boot up and runs our robot driver. If you do not wish for it to automatically start, please decline the service creation. For the mini or miti, most have a can-to-usb converter that the script will set up the drivers for. If you wish, you can also plug a micro usb into the vesc port that controls the rear right hub motor. You must also change the config file for the mini or miti to use ``comm_type: serial`` and set the corresponding /dev/tty* port.
 
 Once the install is finished you are good to go!
 
 #### Option 2: Manually build (No service creation, you can run setup_rover.sh and only create the service if you wish)
 
-Clone our repository into your workspace and ``colcon build`` like any other package. Source the installation and you are ready to go. This does not create udev rules or our roverrobotics.service. You can run the install script to do that if you wish. Please note this also does not set up can drivers for the mini and miti. We highly recommend using the install script to perform a proper installation.
+Clone our repository into your workspace and ``colcon build`` like any other package. Source the installation and you are ready to go. This does not create udev rules, our roverrobotics.service, or set up the can device if you are using a mitiy or mini with a can-to-usb converter. You can run the install script to do that if you wish. We **highly recommend** using the install script to perform a proper installation.
 
 ```
-cd <ros2_ws>
+cd <ros2_ws>/src
+git clone https://github.com/RoverRobotics/ros2_roverrobotics_development.git -b ${ROS_DISTRO}
+cd ..
 colcon build
 source install/setup.sh
 ```
