@@ -16,7 +16,7 @@ Installation is made simple through two options:
 
 #### ``(Recommended)``Option 1: Using the provided install script in the ``install_scripts`` folder
 
-Clone this repo: (https://github.com/RoverRobotics/rover_install_scripts_ros2)[https://github.com/RoverRobotics/rover_install_scripts_ros2]
+Clone this repo: [rover_install_scripts_ros2](https://github.com/RoverRobotics/rover_install_scripts_ros2)
 Then, follow the instructions in the setup script.
 ```
 git clone https://github.com/RoverRobotics/rover_install_scripts_ros2
