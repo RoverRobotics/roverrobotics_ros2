@@ -10,109 +10,53 @@ from launch.actions import LogInfo
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from math import pi
+import yaml
 
 def generate_launch_description():
     ld = LaunchDescription()
-    use_sim_time = LaunchConfiguration('use_sim_time')
 
-    declare_use_sim_time_argument = DeclareLaunchArgument(
-        'use_sim_time',
-        default_value='false',
-        description='Use simulation/Gazebo clock')
-    
-    ld.add_action(declare_use_sim_time_argument)
-    # # Realsense Node
-    # realsense_configuration_path = Path(get_package_share_directory(
-    #     'roverrobotics_driver'), 'config/realsense_config.yaml')
-    
-    # realsense_node = Node(
-    # 	package='realsense2_camera',
-    #     name="realsense",
-    #     executable='realsense2_camera_node',
-    #     parameters=[realsense_configuration_path],
-    #     output='screen'
-    #     )
-    # ld.add_action(realsense_node)
+    accessories_config_path = Path(get_package_share_directory(
+        'roverrobotics_driver'), 'config/accessories.yaml')
 
+     # Read the config file
+    with open(accessories_config_path, 'r') as f:
+        accessories_config = yaml.load(f, Loader=yaml.FullLoader)
 
-    #  # RP Lidar Setup
-    # serial_port = LaunchConfiguration('serial_port', default='/dev/ttyUSB0')
-    # serial_baudrate = LaunchConfiguration('serial_baudrate', default='1000000') #for s2 is 1000000
-    # frame_id = LaunchConfiguration('frame_id', default='laser')
-    # inverted = LaunchConfiguration('inverted', default='false')
-    # angle_compensate = LaunchConfiguration('angle_compensate', default='true')
-    # scan_mode = LaunchConfiguration('scan_mode', default='Standard')
-    # scan_frequency = LaunchConfiguration('scan_frequency', default='10.0')
     
+    # RP Lidar Setup
+    if accessories_config.get('rplidar', {}).get('ros__parameters', {}).get('active', False):
+        lidar_node = Node(
+            package='rplidar_ros',
+            executable='rplidar_composition',
+            name='rplidar',
+            parameters=[accessories_config_path],
+            output='screen')
     
-    # serial_port_ld = DeclareLaunchArgument(
-    #     'serial_port',
-    #     default_value=serial_port,
-    #     description='Specifying usb port to connected lidar')
-
-    # serial_baud_ld = DeclareLaunchArgument(
-    #     'serial_baudrate',
-    #     default_value=serial_baudrate,
-    #     description='Specifying usb port baudrate to connected lidar')
+        # Add RPLidar S2 to launch description
+        ld.add_action(lidar_node)
+    
+    # BNO055 IMU Setup
+    if accessories_config.get('bno055', {}).get('ros__parameters', {}).get('active', False):
+        bno055_node = Node(
+            package = 'bno055',
+            name = 'bno055',
+            executable = 'bno055',
+            parameters = [accessories_config_path])
         
-    # frame_ld = DeclareLaunchArgument(
-    #     'frame_id',
-    #     default_value=frame_id,
-    #     description='Specifying frame_id of lidar')
+        # Add BNO055 IMU to launch description
+        ld.add_action(bno055_node)
 
-    # inverted_ld = DeclareLaunchArgument(
-    #     'inverted',
-    #     default_value=inverted,
-    #     description='Specifying whether or not to invert scan data')
+    # Realsense Node
+    if accessories_config.get('realsense', {}).get('ros__parameters', {}).get('active', False):
+        realsense_node = Node(
+            package='realsense2_camera',
+            name="realsense",
+            executable='realsense2_camera_node',
+            parameters=[accessories_config_path],
+            output='screen')
 
-    # angle_ld = DeclareLaunchArgument(
-    #     'angle_compensate',
-    #     default_value=angle_compensate,
-    #     description='Specifying whether or not to enable angle_compensate of scan data')
+        # Add Realsense d435i to launch description
+        ld.add_action(realsense_node)
 
-    # scan_ld = DeclareLaunchArgument(
-    #     'scan_mode',
-    #     default_value=scan_mode,
-    #     description='Specifying scan mode of lidar')
-
-    # lidar_node = Node(
-    #     package='rplidar_ros',
-    #     executable='rplidar_node',
-    #     name='rplidar_node',
-    #     parameters=[{'serial_port': serial_port, 
-    #                  'serial_baudrate': serial_baudrate, 
-    #                  'frame_id': frame_id,
-    #                  'inverted': inverted, 
-    #                  'angle_compensate': angle_compensate, 
-    #                  'scan_mode': scan_mode,
-    #                  'scan_frequency': scan_frequency}],
-    #     output='screen')
-    
-    # # Add lidar setup to launch description
-    # ld.add_action(serial_port_ld)
-    # ld.add_action(serial_baud_ld)
-    # ld.add_action(frame_ld)
-    # ld.add_action(inverted_ld)
-    # ld.add_action(angle_ld)
-    # ld.add_action(scan_ld)
-    # ld.add_action(lidar_node)
-    
-    # # Static Transforms
-    # camera_tf = Node(
-    #         package="tf2_ros",
-    #         executable="static_transform_publisher",
-    #         output='screen',
-    #         arguments=['0.1905', '0', '0.3302', '0', '0', '0', 'base_link', 'camera_link'],
-    #     ) 
-    # ld.add_action(camera_tf)
-    
-    # laser_tf = Node(
-    #         package="tf2_ros",
-    #         executable="static_transform_publisher",
-    #         output='screen',
-    #         arguments=['0.15875', '0', '0.37465', str(pi), '0', '0', 'base_link', 'laser'],
-    #     )
-    # ld.add_action(laser_tf)
-    
     return ld
 
