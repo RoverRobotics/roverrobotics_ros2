@@ -138,10 +138,13 @@ Please view the URDF file for your robot before deploying to ensure that you hav
 
 Additionally,
 Here are some more resources for understanding transformations, urdf, and gazebo:
-[Gazebo Sim Docs](https://gazebosim.org/docs)
-[Gazebo ROS Docs](https://docs.ros.org/en/humble/Tutorials/Advanced/Simulators/Gazebo/Gazebo.html)
-[Gazebo Sim ROS Installation](https://gazebosim.org/docs/garden/ros_installation)
-[ROS URDF Docs](https://docs.ros.org/en/humble/Tutorials/Intermediate/URDF/URDF-Main.html)
+[(1) Gazebo Sim Docs](https://gazebosim.org/docs)
+
+[(2) Gazebo ROS Docs](https://docs.ros.org/en/humble/Tutorials/Advanced/Simulators/Gazebo/Gazebo.html)
+
+[(3) Gazebo Sim ROS Installation](https://gazebosim.org/docs/garden/ros_installation)
+
+[(4) ROS URDF Docs](https://docs.ros.org/en/humble/Tutorials/Intermediate/URDF/URDF-Main.html)
 
 Here is an example that places a RPLidar S2 relative to the ``base_link`` instead of the payload and adds the gazebo plugin to run a lidar simulation:
 
