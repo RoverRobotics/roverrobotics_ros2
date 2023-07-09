@@ -186,15 +186,17 @@ odom -> map         ## Provided by slam_toolbox
 
 We highly recommend reading through the documentation for Nav2, Slam Toolbox, and Robot Localization to understand how navigation and slam works and walk through our provided configs to familiarize yourself with the concepts. Linked below are the docs for these packages.
 
-[Robot Localization Github](https://github.com/cra-ros-pkg/robot_localization)
+[(1) Robot Localization Github](https://github.com/cra-ros-pkg/robot_localization) | 
 [Robot Localization Tutorial by Automatic Addison](https://automaticaddison.com/sensor-fusion-using-the-robot-localization-package-ros-2/)
 
-[Navigation2 Documentation](https://navigation.ros.org/)
+[(2) Navigation2 Documentation](https://navigation.ros.org/) | 
 [Navigation2 Github](https://github.com/ros-planning/navigation2)
 
-[Slam Toolbox Github and Docs](https://github.com/SteveMacenski/slam_toolbox)
+[(3) Slam Toolbox Github and Docs](https://github.com/SteveMacenski/slam_toolbox)
 
 We also recommend these ROS2 tutorial playlists from [Articulated Robotics](https://www.youtube.com/@ArticulatedRobotics/featured):
-[Getting Ready to Build with ROS](https://www.youtube.com/playlist?list=PLunhqkrRNRhYYCaSTVP-qJnyUPkTxJnBt)
-[Various ROS Tutorials from simulation to building a robot to software](https://www.youtube.com/playlist?list=PLunhqkrRNRhYAffV8JDiFOatQXuU-NnxT)
+
+[(1) Getting Ready to Build with ROS](https://www.youtube.com/playlist?list=PLunhqkrRNRhYYCaSTVP-qJnyUPkTxJnBt)
+
+[(2) Various ROS Tutorials from simulation to building a robot to software](https://www.youtube.com/playlist?list=PLunhqkrRNRhYAffV8JDiFOatQXuU-NnxT)
 
