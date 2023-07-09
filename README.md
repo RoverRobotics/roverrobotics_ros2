@@ -138,6 +138,7 @@ Please view the URDF file for your robot before deploying to ensure that you hav
 
 Additionally,
 Here are some more resources for understanding transformations, urdf, and gazebo:
+
 [(1) Gazebo Sim Docs](https://gazebosim.org/docs)
 
 [(2) Gazebo ROS Docs](https://docs.ros.org/en/humble/Tutorials/Advanced/Simulators/Gazebo/Gazebo.html)
