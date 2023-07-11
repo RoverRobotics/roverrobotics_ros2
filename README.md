@@ -30,7 +30,7 @@ Installation is made simple through two options:
 
   
 
-#### ``(Recommended)``Option 1: Using the provided install script in the ``install_scripts`` folder
+#### ``(Recommended)``Option 1: Using the provided install script in the ``rover_install_scripts_ros2`` repo
 
   
 
