@@ -72,7 +72,7 @@ Clone our repository into your workspace and ``colcon build`` like any other pac
 
 cd <ros2_ws>/src
 
-git clone https://github.com/RoverRobotics/ros2_roverrobotics_development.git -b ${ROS_DISTRO}
+git clone https://github.com/RoverRobotics/roverrobotics_ros2.git -b ${ROS_DISTRO}
 
 cd ..
 
