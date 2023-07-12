@@ -188,8 +188,28 @@ We have provided launch files and configs for Navigation2 and Slam Toolbox. They
 They can be launched with the following launch commands:
 ```
 ros2 launch roverrobotics_driver slam_launch.py
-ros2 launch roverrobotics_driver navigation_launch.py
+ros2 launch roverrobotics_driver navigation_launch.py map_file_name:=<path_to_map_file>
 ```
+
+If you are using simulation, specify the use_sim_time parameter to be true:
+```
+ros2 launch roverrobotics_driver slam_launch.py use_sim_time:=true
+ros2 launch roverrobotics_driver navigation_launch.py use_sim_time:=true map_file_name:=<path_to_map_file>
+```
+
+Note the parameter map_file_name. When using nav2, it is required to specify the absolute path to your map without any extension. Please use the slam toolbox plugin in rviz2 to save and serialize map files. For instance, if I saved my map as my_map, I would have the following files:
+
+my_map.pgm
+my_map.yaml
+my_map.posegraph
+my_map.data
+
+To properly launch nav2, I would run:
+
+``ros2 launch roverrobotics_driver navigation_launch.py map_file_name:=/path/to/map/my_map``
+
+Note, I omit any extensions when specifying the map and just use the name of the map. This way slam toolbox localization loads the map using all files specified above.
+
 These tools require the following transformations:
 ```
 base_link -> odom   ## Provided by the robot_localization package
