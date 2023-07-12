@@ -97,6 +97,14 @@ You may launch with a teleop node which will try to connect to a joystick:
 ros2 launch roverrobotics_driver <robot>_teleop.launch.py
 ```
 
+### What is launched with this?
+Our launch files launch (1) The Robot Driver, (2) The robot description, (3) an accessories launch, and (4) A PS4 Controller Driver.
+(1) The Robot Driver: responsible for interfacing with our robot and handling velocity commands as well as publishing wheel odometry
+(2) The Robot Description: responsible for publishing to the /robot_description topic and providing transforms between the base_link, chassis_link, and payload_link. Edit the URDF for your robot to define new frames or remove links
+(3) Accessories Launch: a convenience launch for sensor packages to run when the robot is launched. 
+(4) PS4 Controller Driver: handles input from the PS4 Controller
+
+
 ## Simulation with Gazebo
 Our ROS2 packages now support simulations for all robots! The ``roverrobotics_gazebo`` package implements all of the simulation launches. You can launch your simulation using the following:
 ```bash
