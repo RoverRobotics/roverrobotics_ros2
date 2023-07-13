@@ -35,6 +35,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   float pi_p_ = declare_parameter("motor_control_p_gain", PID_P_DEFAULT_);
   float pi_i_ = declare_parameter("motor_control_i_gain", PID_I_DEFAULT_);
   float pi_d_ = declare_parameter("motor_control_d_gain", PID_D_DEFAULT_);
+  linear_covariance = declare_parameter("linear_covariance", LIN_COVAR_DEFAULT);
+  yaw_covariance = declare_parameter("yaw_covariance", YAW_COVAR_DEFAULT);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -112,7 +114,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   odometry_publisher_ =
         create_publisher<nav_msgs::msg::Odometry>(odom_topic_, rclcpp::QoS(4));
 
-    odometry_timer_ =
+  odometry_timer_ =
         create_wall_timer(1s / odometry_frequency_, [=]() { update_odom(); });
   robot_status_timer_ = create_wall_timer(1s / robot_status_frequency_,
                                           [=]() { publish_robot_status(); });
@@ -295,8 +297,6 @@ void RobotDriver::update_odom() {
   static double dt = 0;
   static double mean_linear = 0;
   static double mean_angular = 0;
-  // float odom_covariance_0_ = 0.5;
-  // float odom_covariance_35_ = 1.0;
   tf2::Quaternion q_new;
   
   odom.header.frame_id = odom_frame_id_;
@@ -352,18 +352,9 @@ void RobotDriver::update_odom() {
   // Otherwise set them to the ROS param
   
   
-  if (robot_data_.linear_vel == 0 && robot_data_.angular_vel == 0)
-  {
-    odom.twist.covariance[0] = 0.00000001;
-    odom.twist.covariance[7] = 0.00000001;
-    odom.twist.covariance[35] = 0.00000001;
-  }
-  else
-  {
-    odom.twist.covariance[0] = 0.15;
-    odom.twist.covariance[7] = 0.15;
-    odom.twist.covariance[35] = 1.0;
-  }
+  odom.twist.covariance[0] = linear_covariance;
+  odom.twist.covariance[7] = linear_covariance;
+  odom.twist.covariance[35] = yaw_covariance;
   	
   
   // Publish odometry and odom->base_link transform
