@@ -114,6 +114,9 @@ ros2 launch roverrobotics_gazebo <robot>_gazebo.launch.py
 
 The 2wd_rover and 4wd_rover replace the Rover Zero and Rover Pro since they have the same footprint. The 2wd_rover implements our chassis with two driven front wheels and two rear casters and the 4wd_rover implements our chassis with 4 driven wheels in a skid steer configuration.
 
+Note: You have to install gazebo specifically for ROS. Our install script does not install gazebo. To install gazebo:
+```sudo apt install ros-{DISTRO}-ros-gz```
+
 ## Robot Description Setup
 Our ROS2 packages now implement URDF setups for all Rover Robots! The ``roverrobotics_description`` package implements all of the URDF configs and launches. You can view a URDF using the following:
 ```bash
