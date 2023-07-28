@@ -7,6 +7,7 @@
 #include <cmath>
 #include <geometry_msgs/msg/transform_stamped.hpp>
 
+
 #include "protocol_pro.hpp"
 #include "protocol_zero_2.hpp"
 #include "differential_robot.hpp"
@@ -16,14 +17,16 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 #include "rclcpp/node_options.hpp"
-#include "rclcpp/rclcpp.hpp"
+#include <rclcpp/rclcpp.hpp>
 #include "rclcpp/time.hpp"
 #include "rcppmath/rolling_mean_accumulator.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float32.hpp"
+#include "sensor_msgs/msg/battery_state.hpp"
 #include "std_msgs/msg/float32_multi_array.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_broadcaster.h"
+
 // #include <librover/status_data.hpp>
 using namespace std::chrono_literals;
 
@@ -94,6 +97,8 @@ class RobotDriver : public rclcpp::Node {
       robot_status_publisher_;  // publish robot state
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr
       odometry_publisher_;  // Odom Publisher
+   rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr
+      battery_soc_publisher_;  // Battery Status Publisher
   std::unique_ptr<tf2_ros::TransformBroadcaster> odom_tf_pub; // Odom TF Broadcaster
 
   // Timepoint / Timer

@@ -16,6 +16,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 #find_package(diagnostic_updater REQUIRED)
 
 #include_directories(include/)
@@ -58,6 +59,7 @@ ament_target_dependencies(roverrobotics_driver
   #rover_msgs
   nav_msgs
   tf2_geometry_msgs
+  sensor_msgs
   #diagnostic_updater
   )
 

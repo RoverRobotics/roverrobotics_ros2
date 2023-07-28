@@ -105,6 +105,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       robot_info_topic_, rclcpp::QoS(32));
   robot_status_publisher_ = create_publisher<std_msgs::msg::Float32MultiArray>(
       robot_status_topic_, rclcpp::QoS(31));
+  battery_soc_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
+      "rover_" + robot_type_ + "/battery_status", rclcpp::QoS(10));
   if (pub_odom_tf_) {
      RCLCPP_INFO(get_logger(),
                 "Publishing Robot TF on %s at %.2Fhz", odom_topic_.c_str(),
@@ -272,6 +274,13 @@ void RobotDriver::publish_robot_status() {
   robot_status.data.push_back(robot_data_.motor3_sensor1);
   robot_status.data.push_back(robot_data_.motor3_sensor2);
   robot_status_publisher_->publish(robot_status);
+
+
+  // Battery Status Topic
+  auto battery_msg = sensor_msgs::msg::BatteryState();
+  battery_msg.voltage = robot_data_.battery1_voltage;
+  battery_msg.percentage = robot_data_.battery1_SOC;
+  battery_soc_publisher_->publish(battery_msg);
 }
 
 void RobotDriver::update_odom() {
