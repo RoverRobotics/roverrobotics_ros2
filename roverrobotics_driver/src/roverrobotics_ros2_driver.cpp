@@ -278,8 +278,15 @@ void RobotDriver::publish_robot_status() {
 
   // Battery Status Topic
   auto battery_msg = sensor_msgs::msg::BatteryState();
-  battery_msg.voltage = robot_data_.battery1_voltage;
-  battery_msg.percentage = robot_data_.battery1_SOC;
+  if (robot_type_ != "pro"){
+    battery_msg.percentage = robot_data_.battery1_SOC;
+    battery_msg.voltage = robot_data_.battery1_voltage;
+    battery_msg.current = robot_data_.battery1_current;
+  } else {
+    battery_msg.percentage = robot_data_.battery1_SOC / 10.0;
+    battery_msg.voltage = robot_data_.battery2_voltage;
+    battery_msg.current = robot_data_.battery2_current;
+  }
   battery_soc_publisher_->publish(battery_msg);
 }
 
