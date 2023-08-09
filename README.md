@@ -117,6 +117,53 @@ The 2wd_rover and 4wd_rover replace the Rover Zero and Rover Pro since they have
 Note: You have to install gazebo specifically for ROS. Our install script does not install gazebo. To install gazebo:
 ```sudo apt install ros-{DISTRO}-ros-gz```
 
+## Getting the Sensor Packages
+At rover we have several mainly used sensors that we use. The BNO055 IMU and RP Lidar S2 are our goto IMU and Lidar sensors. Our install script does not automatically install these packages as not everyone needs them. To install them, follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
+```bash
+cd rover_workspace/src
+git clone https://github.com/flynneva/bno055.git
+git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git
+cd ~/rover_workspace
+source /opt/ros/<rosdistro>/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+Note: This serves as a starting point for implementing indoor autonomous navigation using the specified sensors. Our goal is to provide a simple yet effective solution that can be extended and customized based on specific project requirements. 
+
+## Setting Up the Sensors
+### Configuring UDEV Rules
+**Note:** To follow the intructions mentioned below, you need to install the [rover_install_scripts_ros2](https://github.com/RoverRobotics/rover_install_scripts_ros2) or you can do it on your own from [scratch](https://linuxconfig.org/tutorial-on-how-to-write-basic-udev-rules-in-linux)
+
+Edit the ``55-roverrobotics.rules``, which can be found in the ``rover_install_scripts_ros2`` within ``udev`` folder.
+You can see that ``rplidar`` has been already set up under ``# Sensor Udev Rules``. Let's setup the ``bno055``.
+```bash
+KERNEL=="ttyUSB*", ATTRS{idVendor}=="<enter_the_vendor_id>", ATTRS{idProduct}=="<enter_the_product_id>", MODE:="0777", SYMLINK+="bno055"
+```
+Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/))
+
+```bash
+cd ~/rover_install_scripts_ros2/udev
+sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+Now, you should be able to see the ``bno055`` and ``rplidar`` in the list of your usb devices, using ``ls /dev``
+
+**Note:** If you have two devices with the same vendor and product ID, you can use ``ATTR{serial}`` to differentiate between the two devices. Use ``lsusb -v`` for the same.
+
+### Enabling and Setting Up the Ports of the Sensors
+Enable the ``rplidar`` and ``bno055`` within the ``accessories.yaml`` file, which can be found in the ``roverrobotics_driver`` package within the ``config`` folder.
+
+You can do this by setting the ``active`` parameter under ``ros__parameters`` of both the sensors as ``true``.
+
+In the same file ``accessories.yaml`` you can update the ``serial_port`` for ``rplidar`` as ``serial_port: "/dev/rplidar"`` and similarly for ``bno055``, ``uart_port: "/dev/bno055"``.
+
+Do not forget to perform a build of your workspace:
+```bash
+cd ~/rover_workspace
+colcon build
+```
+
 ## Robot Description Setup
 Our ROS2 packages now implement URDF setups for all Rover Robots! The ``roverrobotics_description`` package implements all of the URDF configs and launches. You can view a URDF using the following:
 ```bash
