@@ -43,11 +43,13 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
+    # Add sim time arg
+    ld.add_action(declare_use_sim_time_argument)
+    
     # Add localization to launch description
     ld.add_action(robot_localizer_launch)
 
     # Add slam setup to launch description
-    ld.add_action(declare_use_sim_time_argument)
     ld.add_action(declare_slam_params_file_cmd)
     ld.add_action(start_async_slam_toolbox_node)
     
