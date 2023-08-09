@@ -118,12 +118,12 @@ Note: You have to install gazebo specifically for ROS. Our install script does n
 ```sudo apt install ros-{DISTRO}-ros-gz```
 
 ## Getting the Sensor Packages
-IMU and 2D LIDAR are the very fundamental requirements for autonomous indoor nagivation. Here we will be using the BNO055 IMU and the RPLidar S2 2D LiDAR sensor to provide accurate and robust localization and mapping for autonomous indoor navigation. Follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
+At rover we have several mainly used sensors that we use. The BNO055 IMU and RP Lidar S2 are our goto IMU and Lidar sensors. Our install script does not automatically install these packages as not everyone needs them. To install them, follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
 ```bash
-cd <ros2_ws>/src
+cd rover_workspace/src
 git clone https://github.com/flynneva/bno055.git
 git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git
-cd ~/<ros2_ws>
+cd ~/rover_workspace
 source /opt/ros/<rosdistro>/setup.bash
 colcon build --symlink-install
 source install/setup.bash
@@ -139,7 +139,7 @@ You can see that ``rplidar`` has been already set up under ``# Sensor Udev Rules
 ```bash
 KERNEL=="ttyUSB*", ATTRS{idVendor}=="<enter_the_vendor_id>", ATTRS{idProduct}=="<enter_the_product_id>", MODE:="0777", SYMLINK+="bno055"
 ```
-Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/)
+Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/))
 
 ```bash
 cd ~/rover_install_scripts_ros2/udev
@@ -160,7 +160,7 @@ In the same file ``accessories.yaml`` you can update the ``serial_port`` for ``r
 
 Do not forget to perform a build of your workspace:
 ```bash
-cd ~/<ros2_ws>/
+cd ~/rover_workspace
 colcon build
 ```
 
