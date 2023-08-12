@@ -29,7 +29,7 @@ def generate_launch_description():
     	executable='ekf_node',
     	name='ekf_filter_node',
     	output='screen',
-    	parameters=[{'use_sim_time': use_sim_time}, robot_localization_file_path]
+    	parameters=[robot_localization_file_path, {'use_sim_time': use_sim_time}]
     	)
     
     ld = LaunchDescription()
