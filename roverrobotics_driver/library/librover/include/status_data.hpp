@@ -31,8 +31,8 @@ struct robotData {
   signed short int battery2_temp;
   unsigned short int battery1_current;
   unsigned short int battery2_current;
-  bool battery1_SOC;
-  bool battery2_SOC;
+  unsigned short int battery1_SOC;
+  unsigned short int battery2_SOC;
   unsigned short int battery1_fault_flag;
   unsigned short int battery2_fault_flag;
 

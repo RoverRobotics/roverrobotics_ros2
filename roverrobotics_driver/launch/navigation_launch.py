@@ -33,9 +33,6 @@ def generate_launch_description():
     bringup_dir = get_package_share_directory('nav2_bringup')
     launch_dir = os.path.join(bringup_dir, 'launch')
 
-    rl_launch_path = os.path.join(rover_dir, 'launch', 'robot_localizer.launch.py')
-    robot_localizer_launch = IncludeLaunchDescription(PythonLaunchDescriptionSource(rl_launch_path))
-
     # Create the launch configuration variables
     namespace = LaunchConfiguration('namespace')
     use_namespace = LaunchConfiguration('use_namespace')
@@ -119,7 +116,9 @@ def generate_launch_description():
         'log_level', default_value='info',
         description='log level')
     
-   
+    rl_launch_path = os.path.join(get_package_share_directory("roverrobotics_driver"), 'launch', 'robot_localizer.launch.py')
+    robot_localizer_launch = IncludeLaunchDescription(PythonLaunchDescriptionSource(rl_launch_path),
+        launch_arguments={'use_sim_time': use_sim_time}.items())
 
     # Specify the actions
     bringup_cmd_group = GroupAction([

@@ -298,7 +298,13 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
       robotstatus_.battery2_temp = 0;
       robotstatus_.battery1_current = vesc_all_input_current_;
       robotstatus_.battery2_current = 0;
-      robotstatus_.battery1_SOC = 0;
+      if(robotstatus_.battery1_voltage >= 42.0) {
+        robotstatus_.battery1_SOC = 100;
+      } else if (robotstatus_.battery1_voltage <= 34.0){
+        robotstatus_.battery1_SOC = 0.0;
+      } else {
+        robotstatus_.battery1_SOC = 12.5 * robotstatus_.battery1_voltage - 425;
+      }
       robotstatus_.battery2_SOC = 0;
       robotstatus_.battery1_fault_flag = 0;
       robotstatus_.battery2_fault_flag = 0;

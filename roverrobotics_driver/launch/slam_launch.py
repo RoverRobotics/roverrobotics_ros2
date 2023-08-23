@@ -14,9 +14,6 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     
-    rl_launch_path = os.path.join(get_package_share_directory("roverrobotics_driver"), 'launch', 'robot_localizer.launch.py')
-    robot_localizer_launch = IncludeLaunchDescription(PythonLaunchDescriptionSource(rl_launch_path))
-    
     # Slam toolbox launch setup
     use_sim_time = LaunchConfiguration('use_sim_time')
     slam_params_file = LaunchConfiguration('slam_params_file')
@@ -31,6 +28,11 @@ def generate_launch_description():
                                    'config/slam_configs', 'mapper_params_online_async.yaml'),
         description='Full path to the ROS2 parameters file to use for the slam_toolbox node')
 
+
+    rl_launch_path = os.path.join(get_package_share_directory("roverrobotics_driver"), 'launch', 'robot_localizer.launch.py')
+    robot_localizer_launch = IncludeLaunchDescription(PythonLaunchDescriptionSource(rl_launch_path),
+        launch_arguments={'use_sim_time': use_sim_time}.items())
+
     start_async_slam_toolbox_node = Node(
         parameters=[
           slam_params_file,
@@ -43,11 +45,13 @@ def generate_launch_description():
 
     ld = LaunchDescription()
 
+    # Add sim time arg
+    ld.add_action(declare_use_sim_time_argument)
+    
     # Add localization to launch description
     ld.add_action(robot_localizer_launch)
 
     # Add slam setup to launch description
-    ld.add_action(declare_use_sim_time_argument)
     ld.add_action(declare_slam_params_file_cmd)
     ld.add_action(start_async_slam_toolbox_node)
     

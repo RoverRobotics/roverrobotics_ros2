@@ -30,7 +30,7 @@ Installation is made simple through two options:
 
   
 
-#### ``(Recommended)``Option 1: Using the provided install script in the ``install_scripts`` folder
+#### ``(Recommended)``Option 1: Using the provided install script in the ``rover_install_scripts_ros2`` repo
 
   
 
@@ -72,7 +72,7 @@ Clone our repository into your workspace and ``colcon build`` like any other pac
 
 cd <ros2_ws>/src
 
-git clone https://github.com/RoverRobotics/ros2_roverrobotics_development.git -b ${ROS_DISTRO}
+git clone https://github.com/RoverRobotics/roverrobotics_ros2.git -b ${ROS_DISTRO}
 
 cd ..
 
@@ -97,6 +97,14 @@ You may launch with a teleop node which will try to connect to a joystick:
 ros2 launch roverrobotics_driver <robot>_teleop.launch.py
 ```
 
+### What is launched with this?
+Our launch files launch (1) The Robot Driver, (2) The robot description, (3) an accessories launch, and (4) A PS4 Controller Driver.
+(1) The Robot Driver: responsible for interfacing with our robot and handling velocity commands as well as publishing wheel odometry
+(2) The Robot Description: responsible for publishing to the /robot_description topic and providing transforms between the base_link, chassis_link, and payload_link. Edit the URDF for your robot to define new frames or remove links
+(3) Accessories Launch: a convenience launch for sensor packages to run when the robot is launched. 
+(4) PS4 Controller Driver: handles input from the PS4 Controller
+
+
 ## Simulation with Gazebo
 Our ROS2 packages now support simulations for all robots! The ``roverrobotics_gazebo`` package implements all of the simulation launches. You can launch your simulation using the following:
 ```bash
@@ -105,6 +113,56 @@ ros2 launch roverrobotics_gazebo <robot>_gazebo.launch.py
 *Valid ``<robot>`` options are: ``2wd_rover, 4wd_rover, mini, miti, indoor_miti``*
 
 The 2wd_rover and 4wd_rover replace the Rover Zero and Rover Pro since they have the same footprint. The 2wd_rover implements our chassis with two driven front wheels and two rear casters and the 4wd_rover implements our chassis with 4 driven wheels in a skid steer configuration.
+
+Note: You have to install gazebo specifically for ROS. Our install script does not install gazebo. To install gazebo:
+```sudo apt install ros-{DISTRO}-ros-gz```
+
+## Getting the Sensor Packages
+At rover we have several mainly used sensors that we use. The BNO055 IMU and RP Lidar S2 are our goto IMU and Lidar sensors. Our install script does not automatically install these packages as not everyone needs them. To install them, follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
+```bash
+cd rover_workspace/src
+git clone https://github.com/flynneva/bno055.git
+git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git
+cd ~/rover_workspace
+source /opt/ros/<rosdistro>/setup.bash
+colcon build --symlink-install
+source install/setup.bash
+```
+Note: This serves as a starting point for implementing indoor autonomous navigation using the specified sensors. Our goal is to provide a simple yet effective solution that can be extended and customized based on specific project requirements. 
+
+## Setting Up the Sensors
+### Configuring UDEV Rules
+**Note:** To follow the intructions mentioned below, you need to install the [rover_install_scripts_ros2](https://github.com/RoverRobotics/rover_install_scripts_ros2) or you can do it on your own from [scratch](https://linuxconfig.org/tutorial-on-how-to-write-basic-udev-rules-in-linux)
+
+Edit the ``55-roverrobotics.rules``, which can be found in the ``rover_install_scripts_ros2`` within ``udev`` folder.
+You can see that ``rplidar`` has been already set up under ``# Sensor Udev Rules``. Let's setup the ``bno055``.
+```bash
+KERNEL=="ttyUSB*", ATTRS{idVendor}=="<enter_the_vendor_id>", ATTRS{idProduct}=="<enter_the_product_id>", MODE:="0777", SYMLINK+="bno055"
+```
+Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/))
+
+```bash
+cd ~/rover_install_scripts_ros2/udev
+sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+Now, you should be able to see the ``bno055`` and ``rplidar`` in the list of your usb devices, using ``ls /dev``
+
+**Note:** If you have two devices with the same vendor and product ID, you can use ``ATTR{serial}`` to differentiate between the two devices. Use ``lsusb -v`` for the same.
+
+### Enabling and Setting Up the Ports of the Sensors
+Enable the ``rplidar`` and ``bno055`` within the ``accessories.yaml`` file, which can be found in the ``roverrobotics_driver`` package within the ``config`` folder.
+
+You can do this by setting the ``active`` parameter under ``ros__parameters`` of both the sensors as ``true``.
+
+In the same file ``accessories.yaml`` you can update the ``serial_port`` for ``rplidar`` as ``serial_port: "/dev/rplidar"`` and similarly for ``bno055``, ``uart_port: "/dev/bno055"``.
+
+Do not forget to perform a build of your workspace:
+```bash
+cd ~/rover_workspace
+colcon build
+```
 
 ## Robot Description Setup
 Our ROS2 packages now implement URDF setups for all Rover Robots! The ``roverrobotics_description`` package implements all of the URDF configs and launches. You can view a URDF using the following:
@@ -180,8 +238,28 @@ We have provided launch files and configs for Navigation2 and Slam Toolbox. They
 They can be launched with the following launch commands:
 ```
 ros2 launch roverrobotics_driver slam_launch.py
-ros2 launch roverrobotics_driver navigation_launch.py
+ros2 launch roverrobotics_driver navigation_launch.py map_file_name:=<path_to_map_file>
 ```
+
+If you are using simulation, specify the use_sim_time parameter to be true:
+```
+ros2 launch roverrobotics_driver slam_launch.py use_sim_time:=true
+ros2 launch roverrobotics_driver navigation_launch.py use_sim_time:=true map_file_name:=<path_to_map_file>
+```
+
+Note the parameter map_file_name. When using nav2, it is required to specify the absolute path to your map without any extension. Please use the slam toolbox plugin in rviz2 to save and serialize map files. For instance, if I saved my map as my_map, I would have the following files:
+
+my_map.pgm
+my_map.yaml
+my_map.posegraph
+my_map.data
+
+To properly launch nav2, I would run:
+
+``ros2 launch roverrobotics_driver navigation_launch.py map_file_name:=/path/to/map/my_map``
+
+Note, I omit any extensions when specifying the map and just use the name of the map. This way slam toolbox localization loads the map using all files specified above.
+
 These tools require the following transformations:
 ```
 base_link -> odom   ## Provided by the robot_localization package

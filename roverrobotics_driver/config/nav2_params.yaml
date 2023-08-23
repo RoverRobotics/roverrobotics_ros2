@@ -248,12 +248,12 @@ local_costmap:
       height: 8
       resolution: 0.05
       footprint: "[[0.27305, 0.1778],[0.27305, -0.1778],[-0.27305, -0.1778],[-0.27305, 0.1778]]"
-      footprint_padding: 0.025
+      footprint_padding: 0.01
       plugins: ["voxel_layer", "inflation_layer"]
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 1.7
-        inflation_radius: 0.5
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.35
       voxel_layer:
         plugin: "nav2_costmap_2d::VoxelLayer"
         enabled: True
@@ -311,8 +311,8 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 1.7
-        inflation_radius: 0.5
+        cost_scaling_factor: 3.0
+        inflation_radius: 0.4
       always_send_full_costmap: True
 
 map_server:

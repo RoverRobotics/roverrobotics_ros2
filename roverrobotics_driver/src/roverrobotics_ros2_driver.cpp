@@ -35,6 +35,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   float pi_p_ = declare_parameter("motor_control_p_gain", PID_P_DEFAULT_);
   float pi_i_ = declare_parameter("motor_control_i_gain", PID_I_DEFAULT_);
   float pi_d_ = declare_parameter("motor_control_d_gain", PID_D_DEFAULT_);
+  linear_covariance = declare_parameter("linear_covariance", LIN_COVAR_DEFAULT);
+  yaw_covariance = declare_parameter("yaw_covariance", YAW_COVAR_DEFAULT);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -103,6 +105,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       robot_info_topic_, rclcpp::QoS(32));
   robot_status_publisher_ = create_publisher<std_msgs::msg::Float32MultiArray>(
       robot_status_topic_, rclcpp::QoS(31));
+  battery_soc_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
+      "rover_" + robot_type_ + "/battery_status", rclcpp::QoS(10));
   if (pub_odom_tf_) {
      RCLCPP_INFO(get_logger(),
                 "Publishing Robot TF on %s at %.2Fhz", odom_topic_.c_str(),
@@ -112,7 +116,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   odometry_publisher_ =
         create_publisher<nav_msgs::msg::Odometry>(odom_topic_, rclcpp::QoS(4));
 
-    odometry_timer_ =
+  odometry_timer_ =
         create_wall_timer(1s / odometry_frequency_, [=]() { update_odom(); });
   robot_status_timer_ = create_wall_timer(1s / robot_status_frequency_,
                                           [=]() { publish_robot_status(); });
@@ -270,6 +274,20 @@ void RobotDriver::publish_robot_status() {
   robot_status.data.push_back(robot_data_.motor3_sensor1);
   robot_status.data.push_back(robot_data_.motor3_sensor2);
   robot_status_publisher_->publish(robot_status);
+
+
+  // Battery Status Topic
+  auto battery_msg = sensor_msgs::msg::BatteryState();
+  if (robot_type_ != "pro"){
+    battery_msg.percentage = robot_data_.battery1_SOC;
+    battery_msg.voltage = robot_data_.battery1_voltage;
+    battery_msg.current = robot_data_.battery1_current;
+  } else {
+    battery_msg.percentage = robot_data_.battery1_SOC / 10.0;
+    battery_msg.voltage = robot_data_.battery2_voltage;
+    battery_msg.current = robot_data_.battery2_current;
+  }
+  battery_soc_publisher_->publish(battery_msg);
 }
 
 void RobotDriver::update_odom() {
@@ -295,8 +313,6 @@ void RobotDriver::update_odom() {
   static double dt = 0;
   static double mean_linear = 0;
   static double mean_angular = 0;
-  // float odom_covariance_0_ = 0.5;
-  // float odom_covariance_35_ = 1.0;
   tf2::Quaternion q_new;
   
   odom.header.frame_id = odom_frame_id_;
@@ -352,18 +368,9 @@ void RobotDriver::update_odom() {
   // Otherwise set them to the ROS param
   
   
-  if (robot_data_.linear_vel == 0 && robot_data_.angular_vel == 0)
-  {
-    odom.twist.covariance[0] = 0.00000001;
-    odom.twist.covariance[7] = 0.00000001;
-    odom.twist.covariance[35] = 0.00000001;
-  }
-  else
-  {
-    odom.twist.covariance[0] = 0.15;
-    odom.twist.covariance[7] = 0.15;
-    odom.twist.covariance[35] = 1.0;
-  }
+  odom.twist.covariance[0] = linear_covariance;
+  odom.twist.covariance[7] = linear_covariance;
+  odom.twist.covariance[35] = yaw_covariance;
   	
   
   // Publish odometry and odom->base_link transform
