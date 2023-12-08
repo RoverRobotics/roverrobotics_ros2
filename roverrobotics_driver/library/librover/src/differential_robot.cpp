@@ -150,13 +150,13 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           (static_cast<uint16_t>(msgqueue[++payload_index]) << 8) +
           static_cast<uint16_t>(msgqueue[++payload_index]));
       vesc_motor_temp_ = static_cast<double>(v16) / 10.0;
-      v32 = static_cast<int32_t>(
+      v32 = static_cast<float>(
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 24) +
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 16) +
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 8) +
           static_cast<uint32_t>(msgqueue[++payload_index]));
       vesc_all_motor_current_ = static_cast<float>(v32) / 100.0;
-      v32 = static_cast<int32_t>(
+      v32 = static_cast<float>(
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 24) +
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 16) +
           (static_cast<uint32_t>(msgqueue[++payload_index]) << 8) +

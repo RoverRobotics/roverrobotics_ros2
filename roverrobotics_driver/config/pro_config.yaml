@@ -3,8 +3,8 @@ roverrobotics_driver:
     diagnostics_frequency: 0.2
     odometry_frequency: 15.0
     motor_control_p_gain: 0.4
-    motor_control_i_gain: 0.000
-    motor_control_d_gain: 0.7
+    motor_control_i_gain: 0.7
+    motor_control_d_gain: 0.0
     publish_tf: false
     # robot_status_topic: "/"
     # robot_status_frequency: 60.0
@@ -18,7 +18,7 @@ roverrobotics_driver:
     # estop_reset_topic:
     # trim_topic:
     # estop_state:
-    control_mode: "OPEN_LOOP"
+    control_mode: "INDEPENDENT_WHEEL" # Open loop = OPEN_LOOP | Closed loop = INDEPENDENT_WHEEL
     # linear_top_speed:
     # angular_top_speed:
     odom_topic: "/odometry/wheels"
