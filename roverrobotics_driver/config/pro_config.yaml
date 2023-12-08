@@ -18,7 +18,7 @@ roverrobotics_driver:
     # estop_reset_topic:
     # trim_topic:
     # estop_state:
-    control_mode: "OPEN_LOOP"
+    control_mode: "INDEPENDENT_WHEEL" # Open loop = OPEN_LOOP | Closed loop = INDEPENDENT_WHEEL
     # linear_top_speed:
     # angular_top_speed:
     odom_topic: "/odometry/wheels"
