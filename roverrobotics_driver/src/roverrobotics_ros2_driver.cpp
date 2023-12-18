@@ -6,7 +6,7 @@ double inMin = 770.0;
 double inMax = 970.0;
 double outMin = 0.0;
 double outMax = 100.0;
-double mapValue(double x, double inMax, double inMax, double outMin, double outMax)
+double mapValue(double x, double inMin, double inMax, double outMin, double outMax)
 {
   return outMin + (x-inMin)*(outMax-outMin)/(inMax-inMin);
 }
