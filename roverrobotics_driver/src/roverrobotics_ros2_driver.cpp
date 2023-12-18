@@ -1,5 +1,15 @@
 #include "roverrobotics_ros2_driver.hpp"
 using namespace RoverRobotics;
+#include <iostream>
+
+double inMin = 770.0;
+double inMax = 970.0;
+double outMin = 0.0;
+double outMax = 100.0;
+double mapValue(double x, double inMax, double inMax, double outMin, double outMax)
+{
+  return outMin + (x-inMin)*(outMax-outMin)/(inMax-inMin);
+}
 
 RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_intra_process_comms(false)), linear_accumulator_(10),
   angular_accumulator_(10){
@@ -283,8 +293,8 @@ void RobotDriver::publish_robot_status() {
     battery_msg.voltage = robot_data_.battery1_voltage;
     battery_msg.current = robot_data_.battery1_current;
   } else {
-    battery_msg.percentage = robot_data_.battery1_SOC / 10.0;
-    battery_msg.voltage = robot_data_.battery2_voltage;
+    battery_msg.percentage = mapValue(robot_data_.battery1_SOC, inMin, inMax, outMin, outMax);
+    battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the nu. is divided by 29.94 to get the value in the actual range 
     battery_msg.current = robot_data_.battery2_current;
   }
   battery_soc_publisher_->publish(battery_msg);
