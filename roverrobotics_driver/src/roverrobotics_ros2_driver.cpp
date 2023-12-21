@@ -2,13 +2,19 @@
 using namespace RoverRobotics;
 #include <iostream>
 
-double inMin = 770.0;
+double inMin = 750.0;
 double inMax = 970.0;
 double outMin = 0.0;
 double outMax = 100.0;
 double mapValue(double x, double inMin, double inMax, double outMin, double outMax)
 {
-  return outMin + (x-inMin)*(outMax-outMin)/(inMax-inMin);
+  if (x<inMin){
+    return 0.0;
+  }
+  else
+  {
+    return outMin + (x-inMin)*(outMax-outMin)/(inMax-inMin);
+  }
 }
 
 RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_intra_process_comms(false)), linear_accumulator_(10),
