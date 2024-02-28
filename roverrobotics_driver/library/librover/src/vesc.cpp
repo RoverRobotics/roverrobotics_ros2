@@ -16,8 +16,8 @@ namespace vesc {
         uint8_t vescId = full_msg & ID_MASK;
 
         /* process valid RPM packets */
-        if ((full_msg & CONTENT_MASK) == (vescPacketFlags::PACKET_FLAG | vescPacketFlags::RPM))
-        {
+        // if ((full_msg & CONTENT_MASK) == (vescPacketFlags::PACKET_FLAG | vescPacketFlags::RPM))
+        // {
             /* combine shifted byte values into a single rpm value */
             int32_t rpm_scaled = (robotmsg[5] << 24) | (robotmsg[6] << 16) | (robotmsg[7] << 8) | (robotmsg[8]);
 
@@ -32,26 +32,29 @@ namespace vesc {
             float current = ((float)current_scaled) * CURRENT_SCALING_FACTOR;
             float duty = ((float)duty_scaled) * DUTY_SCALING_FACTOR;
 
+            int16_t voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
+            currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
+
             return (vescChannelStatus){.vescId = vescId,
                                     .current = current,
                                     .rpm = rpm,
                                     .duty = duty,
                                     .voltage = currentVoltage_,
                                     .dataValid = true};
-        }
-        else {
+        // }
+        // else {
 
-            int16_t voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
-            currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
+        //     int16_t voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
+        //     currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
 
-            return (vescChannelStatus){
-                .vescId = 0, 
-                .current = 0, 
-                .rpm = 0, 
-                .duty = 0, 
-                .voltage = currentVoltage_, 
-                .dataValid = false};
-        }
+        //     return (vescChannelStatus){
+        //         .vescId = 0, 
+        //         .current = 0, 
+        //         .rpm = 0, 
+        //         .duty = 0, 
+        //         .voltage = currentVoltage_, 
+        //         .dataValid = false};
+        // }
     }
 
     std::vector<uint8_t> BridgedVescArray::buildCommandMessage(vesc::vescChannelCommand command) 
