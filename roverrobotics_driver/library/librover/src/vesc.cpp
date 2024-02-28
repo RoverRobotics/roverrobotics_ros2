@@ -12,19 +12,14 @@ namespace vesc {
     vescChannelStatus BridgedVescArray::parseReceivedMessage(std::vector<uint8_t> robotmsg) 
     {
 
-        auto full_msg = static_cast<uint32_t>((robotmsg[0] << 24) + (robotmsg[1] << 16) +
-                                (robotmsg[2] << 8) + robotmsg[3]);
-
+        auto full_msg = static_cast<uint32_t>((robotmsg[0] << 24) + (robotmsg[1] << 16) + (robotmsg[2] << 8) + robotmsg[3]);
         uint8_t vescId = full_msg & ID_MASK;
-
 
         /* process valid RPM packets */
         if ((full_msg & CONTENT_MASK) == (vescPacketFlags::PACKET_FLAG | vescPacketFlags::RPM))
         {
-
             /* combine shifted byte values into a single rpm value */
-            int32_t rpm_scaled = (robotmsg[5] << 24) | (robotmsg[6] << 16) |
-                                (robotmsg[7] << 8) | (robotmsg[8]);
+            int32_t rpm_scaled = (robotmsg[5] << 24) | (robotmsg[6] << 16) | (robotmsg[7] << 8) | (robotmsg[8]);
 
             /* combine shifted byte values into a single current value */
             int16_t current_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
@@ -43,7 +38,6 @@ namespace vesc {
                                     .duty = duty,
                                     .voltage = currentVoltage_,
                                     .dataValid = true};
-            
         }
         else {
 

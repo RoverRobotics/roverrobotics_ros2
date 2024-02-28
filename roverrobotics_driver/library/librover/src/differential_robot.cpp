@@ -114,19 +114,16 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.motor2_rpm = parsedMsg.rpm;
           robotstatus_.motor2_id = parsedMsg.vescId;
           robotstatus_.motor2_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         case (VESC_IDS::BACK_LEFT):
           robotstatus_.motor3_rpm = parsedMsg.rpm;
           robotstatus_.motor3_id = parsedMsg.vescId;
           robotstatus_.motor3_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         case (VESC_IDS::BACK_RIGHT):
           robotstatus_.motor4_rpm = parsedMsg.rpm;
           robotstatus_.motor4_id = parsedMsg.vescId;
           robotstatus_.motor4_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         default:
           break;
