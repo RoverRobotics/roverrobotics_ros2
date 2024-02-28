@@ -108,28 +108,33 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
           robotstatus_.motor1_rpm = parsedMsg.rpm;
           robotstatus_.motor1_id = parsedMsg.vescId;
           robotstatus_.motor1_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         case (VESC_IDS::FRONT_RIGHT):
           robotstatus_.motor2_rpm = parsedMsg.rpm;
           robotstatus_.motor2_id = parsedMsg.vescId;
           robotstatus_.motor2_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         case (VESC_IDS::BACK_LEFT):
           robotstatus_.motor3_rpm = parsedMsg.rpm;
           robotstatus_.motor3_id = parsedMsg.vescId;
           robotstatus_.motor3_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         case (VESC_IDS::BACK_RIGHT):
           robotstatus_.motor4_rpm = parsedMsg.rpm;
           robotstatus_.motor4_id = parsedMsg.vescId;
           robotstatus_.motor4_current = parsedMsg.current;
-          robotstatus_.battery1_voltage = parsedMsg.voltage;
           break;
         default:
           break;
+      }
+      // updating battery values for all motors including SoC
+      robotstatus_.battery1_voltage = parsedMsg.voltage;
+      if(robotstatus_.battery1_voltage >= 42.0) {
+        robotstatus_.battery1_SOC = 100;
+      } else if (robotstatus_.battery1_voltage <= 34.0){
+        robotstatus_.battery1_SOC = 0.0;
+      } else {
+        robotstatus_.battery1_SOC = 12.5 * robotstatus_.battery1_voltage - 425;
       }
       robotstatus_mutex_.unlock();
     }
