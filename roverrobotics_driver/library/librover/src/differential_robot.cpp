@@ -129,12 +129,12 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
       }
       // updating battery values for all motors including SoC
       robotstatus_.battery1_voltage = parsedMsg.voltage;
-      if(robotstatus_.battery1_voltage >= 42.0) {
+      if(parsedMsg.voltage >= 42.0) {
         robotstatus_.battery1_SOC = 100;
-      } else if (robotstatus_.battery1_voltage <= 34.0){
+      } else if (parsedMsg.voltage <= 34.0){
         robotstatus_.battery1_SOC = 0.0;
       } else {
-        robotstatus_.battery1_SOC = 12.5 * robotstatus_.battery1_voltage - 425;
+        robotstatus_.battery1_SOC = 12.5 * parsedMsg.voltage - 425;
       }
       robotstatus_mutex_.unlock();
     }
