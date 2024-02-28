@@ -32,9 +32,6 @@ namespace vesc {
             float current = ((float)current_scaled) * CURRENT_SCALING_FACTOR;
             float duty = ((float)duty_scaled) * DUTY_SCALING_FACTOR;
 
-            int16_t voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
-            currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
-
             return (vescChannelStatus){.vescId = vescId,
                                     .current = current,
                                     .rpm = rpm,
