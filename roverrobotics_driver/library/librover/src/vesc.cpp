@@ -7,17 +7,21 @@ namespace vesc {
     {
         vescIds_ = vescIds;
         currentVoltage_ = 0.0;
+        currentAmperage_ = 0.0;
     }
 
     vescChannelStatus BridgedVescArray::parseReceivedMessage(std::vector<uint8_t> robotmsg) 
     {
 
         auto full_msg = static_cast<uint32_t>((robotmsg[0] << 24) + (robotmsg[1] << 16) + (robotmsg[2] << 8) + robotmsg[3]);
-        uint8_t vescId = full_msg & ID_MASK;
 
-        /* process valid RPM packets */
-        if ((full_msg & CONTENT_MASK) == (vescPacketFlags::PACKET_FLAG | vescPacketFlags::RPM))
+        uint8_t vescId = full_msg & ID_MASK;
+        uint8_t commandId = (full_msg & COMMAND_MASK) >> 8;
+
+        // here we process the adequate status packets 
+        if (commandId == STATUS_COMMAND_ID)
         {
+
             /* combine shifted byte values into a single rpm value */
             int32_t rpm_scaled = (robotmsg[5] << 24) | (robotmsg[6] << 16) | (robotmsg[7] << 8) | (robotmsg[8]);
 
@@ -37,11 +41,27 @@ namespace vesc {
                                     .rpm = rpm,
                                     .duty = duty,
                                     .voltage = currentVoltage_,
+                                    .current_in = currentAmperage_, 
                                     .dataValid = true};
+            
         }
-        else {
+        else if (commandId == STATUS_COMMAND_ID_4)
+        {
+            float amperage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
+            currentAmperage_ = ((float)amperage_scaled) * CURRENT_IN_SCALING_FACTOR;
 
-            int16_t voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
+            return (vescChannelStatus){
+                .vescId = 0, 
+                .current = 0, 
+                .rpm = 0, 
+                .duty = 0, 
+                .voltage = 0,
+                .current_in = 0, 
+                .dataValid = false};
+        }
+        else if (commandId == STATUS_COMMAND_ID_5)
+        {
+            float voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
             currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
 
             return (vescChannelStatus){
@@ -49,7 +69,8 @@ namespace vesc {
                 .current = 0, 
                 .rpm = 0, 
                 .duty = 0, 
-                .voltage = currentVoltage_, 
+                .voltage = 0,
+                .current_in = 0, 
                 .dataValid = false};
         }
     }
@@ -63,17 +84,17 @@ namespace vesc {
         switch (command.commandType) 
         {
             case (RPM):
-            command.commandValue /= RPM_SCALING_FACTOR;
-            break;
+                command.commandValue /= RPM_SCALING_FACTOR;
+                break;
             case (CURRENT):
-            command.commandValue /= CURRENT_SCALING_FACTOR;
-            break;
+                command.commandValue /= CURRENT_SCALING_FACTOR;
+                break;
             case (DUTY):
-            command.commandValue *= DUTY_COMMAND_SCALING_FACTOR;
-            break;
+                command.commandValue *= DUTY_COMMAND_SCALING_FACTOR;
+                break;
             default:
-            std::cerr << "unknown command type" << std::endl;
-            exit(-1);
+                std::cerr << "unknown command type" << std::endl;
+                exit(-1);
         };
 
         auto casted_command = static_cast<int32_t>(command.commandValue);
