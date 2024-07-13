@@ -195,7 +195,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       return;
     }
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
-  } else if (robot_type_ == "mini" || robot_type_ == "miti") {
+  } else if (robot_type_ == "mini" || robot_type_ == "miti" || robot_type_ == "max") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
           device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
