@@ -7,7 +7,7 @@ roverrobotics_driver:
     device_port: "can0" # "can0" for differential/mecanum | "internal" for differential/mecanum with blue-ox board
 
     # Robot Kinematics
-    wheel_radius: 0.08255  # Wheel radius (meters)
+    wheel_radius: 0.1651  # Wheel radius(meters) (0.1905 ------ 15 Inch wheels), (0.1651 -------- 13 Inch wheels), (0.08255 ----- 6.5 Inch wheels)
     wheel_base: 0.4953     # Distance between wheels side-to-side from the center of the wheel (meters)
     robot_length: 0.4445   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 1.0
