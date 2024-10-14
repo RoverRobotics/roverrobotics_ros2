@@ -12,7 +12,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     rover_path = get_package_share_path('roverrobotics_description')
-    default_model_path = rover_path / 'urdf/indoor_miti.urdf'
+    default_model_path = rover_path / 'urdf/miti65.urdf'
     
     model_arg = DeclareLaunchArgument(name='model', default_value=str(default_model_path),
                                       description='Absolute path to robot urdf file')
@@ -20,7 +20,7 @@ def generate_launch_description():
                                        value_type=str)
    
     hardware_config = Path(get_package_share_directory(
-        'roverrobotics_driver'), 'config', 'indoor_miti_config.yaml')
+        'roverrobotics_driver'), 'config', 'miti65_config.yaml')
     assert hardware_config.is_file()
 
     ld = LaunchDescription()
