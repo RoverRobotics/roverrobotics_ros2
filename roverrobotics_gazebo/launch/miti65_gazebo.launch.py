@@ -15,7 +15,7 @@ def generate_launch_description():
     # Create the launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
     urdf = os.path.join(get_package_share_directory(
-        'roverrobotics_description'), 'urdf', 'indoor_miti.urdf')
+        'roverrobotics_description'), 'urdf', 'miti65.urdf')
     world = LaunchConfiguration('world')
 
     robot_desc = ParameterValue(Command(['xacro ', urdf]),
@@ -49,7 +49,7 @@ def generate_launch_description():
         executable="create",
         arguments=[
             "-topic", "/robot_description",
-            "-name", "rover_indoor_miti",
+            "-name", "rover_miti65",
             "-allow_renaming", "true",
             "-z", "0.1",
         ]
