@@ -12,7 +12,7 @@ def generate_launch_description():
     return LaunchDescription([
         SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
-            [ThisLaunchFileDir(), '/miti65.launch.py'])),
+            [ThisLaunchFileDir(), '/miti_65.launch.py'])),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
             [ThisLaunchFileDir(), '/ps4_controller.launch.py'])),
     ])
