@@ -1,17 +1,17 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_mini">
 
     <!-- Robot Parameters -->
-    <xacro:property name="wheel_z_offset" value="-0.0155" />
+    <xacro:property name="wheel_z_offset" value="0.02" />
     <xacro:property name="wheel_x_offset" value="0.11" />
-    <xacro:property name="front_wheel_x_offset" value="0.006" />
-    <xacro:property name="wheel_y_offset" value="0.155" />
+    <!-- <xacro:property name="front_wheel_x_offset" value="0.006" /> -->
+    <xacro:property name="wheel_y_offset" value="0.162" />
     <xacro:property name="wheel_mass" value="3.62874" />
     <xacro:property name="chassis_mass" value="1.36078" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
     <!-- Comment or Uncomment any of these to add them to the dev payload -->
     <!-- You can always link them elsewhere if you wish by editing accessories/<sensor>.urdf -->
-    <xacro:property name="payload_z_offset" value="0.1105" />
+    <xacro:property name="payload_z_offset" value="0.1645" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rplidar_s2.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/imu.urdf" />
@@ -20,21 +20,21 @@
     <link name="base_link" />
     <link name="chassis_link">
         <visual>
-            <origin xyz="0.01 0.02 0" rpy="0 -0 1.5708" />
+            <origin xyz="0 0 0" rpy="0 -0 1.5708" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis_new.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0.01 0.02 0" rpy="0 -0 1.5708" />
+            <origin xyz="0 0 0" rpy="0 -0 1.5708" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/mini_chassis_new.dae"/>
             </geometry>
         </collision>
 
         <inertial>
-            <origin xyz="0.0 0.0 0.02" rpy="0 0 0"/>
+            <origin xyz="0 0 0.02" rpy="0 0 0"/>
             <mass value="${chassis_mass}" />
             <inertia ixx="0.006453" ixy="0"  ixz="0" iyy="0.0117" iyz="0" izz="0.015812" />
         </inertial>
@@ -43,21 +43,21 @@
     <joint name="base_to_chassis" type="fixed">
         <parent link="base_link"/>
         <child link="chassis_link"/>
-        <origin xyz="0 0 0.0965"/>
+        <origin xyz="0 0 0.061"/>
     </joint>
 
     <link name="fl_wheel_link">
         <visual>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 -0.08 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 -0.08 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </collision>
 
@@ -72,21 +72,22 @@
         <parent link="chassis_link"/>
         <child link="fl_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}"/>
+        <origin xyz="${wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}"/>
+        <!-- <origin xyz="${wheel_x_offset - front_wheel_x_offset} ${wheel_y_offset} ${wheel_z_offset}"/> -->
     </joint>
 
     <link name="fr_wheel_link">
         <visual>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0.08 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0.08 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </collision>
 
@@ -101,21 +102,22 @@
         <parent link="chassis_link"/>
         <child link="fr_wheel_link"/>
         <axis xyz="0 1 0"/>
-        <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}"/>
+        <origin xyz="${wheel_x_offset} ${-wheel_y_offset} ${wheel_z_offset}"/>
+        <!-- <origin xyz="${wheel_x_offset - front_wheel_x_offset}  ${-wheel_y_offset} ${wheel_z_offset}"/> -->
     </joint>
 
     <link name="rl_wheel_link">
         <visual>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 -0.08 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <origin xyz="0 -0.08 0" rpy="1.57 3.1415 0" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </collision>
 
@@ -135,16 +137,16 @@
 
     <link name="rr_wheel_link">
         <visual>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0.08 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </visual>
 
         <collision>
-            <origin xyz="0 0 0" rpy="1.57 3.1415 3.1415" />
+            <origin xyz="0 0.08 0" rpy="1.57 3.1415 3.1415" />
             <geometry>
-                <mesh filename="file://$(find roverrobotics_description)/meshes/hub_6.5in.dae"/>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/65wheels.dae"/>
             </geometry>
         </collision>
 
