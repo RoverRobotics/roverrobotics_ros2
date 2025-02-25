@@ -9,7 +9,7 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     rover_path = get_package_share_path('roverrobotics_description')
-    default_model_path = rover_path / 'urdf/max.urdf'
+    default_model_path = rover_path / 'urdf/max_150.urdf'
     default_rviz_config_path = rover_path / 'rviz/urdf.rviz'
 
     model_arg = DeclareLaunchArgument(name='model', default_value=str(default_model_path),
