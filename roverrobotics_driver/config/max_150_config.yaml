@@ -13,9 +13,9 @@ roverrobotics_driver:
     gear_ratio: 3.33
 
     # PID for wheel controllers and limits
-    motor_control_p_gain: 0.00048
-    motor_control_i_gain: 0.00000
-    motor_control_d_gain: 0.000005
+    motor_control_p_gain: 0.0012
+    motor_control_i_gain: 0.00001
+    motor_control_d_gain: 0.00013
     #linear_top_speed: 3.0 # Meters-per-second
     #angular_top_speed: 3.0 # Radians-per-second
     #angular_a_coef: 0.8
