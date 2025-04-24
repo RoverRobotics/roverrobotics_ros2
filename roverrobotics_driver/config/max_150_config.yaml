@@ -1,0 +1,44 @@
+roverrobotics_driver:
+  ros__parameters:
+    # Robot Parameters
+    drivetrain: "differential"   # differential, mecanum
+    robot_type: "max"
+    comm_type: "can"
+    device_port: "can0" # "can0" for differential/mecanum | "internal" for differential/mecanum with blue-ox board
+
+    # Robot Kinematics
+    wheel_radius: 0.1905  # Wheel radius(meters) (0.1905 ------ 15 Inch wheels), (0.1651 -------- 13 Inch wheels), (0.08255 ----- 6.5 Inch wheels)
+    wheel_base: 0.4953     # Distance between wheels side-to-side from the center of the wheel (meters)
+    robot_length: 0.4445   # Distance between wheels front-to-back from center of the wheel (meters)
+    gear_ratio: 3.33
+
+    # PID for wheel controllers and limits
+    motor_control_p_gain: 0.0012
+    motor_control_i_gain: 0.00001
+    motor_control_d_gain: 0.00013
+    #linear_top_speed: 3.0 # Meters-per-second
+    #angular_top_speed: 3.0 # Radians-per-second
+    #angular_a_coef: 0.8
+    #angular_b_coef: 1.0
+    #angular_c_coef: 1.0
+    #angular_min_scale: 1.0
+    #angular_max_scale: 1.5
+    
+    # Diagnostics and Status
+    diagnostics_frequency: 0.2
+    odometry_frequency: 15.0
+    # robot_status_topic: "/"
+    # robot_status_frequency: 60.0
+    # robot_info_request_topic:
+    # robot_info_topic:
+    
+    # Topics and Frames
+    speed_topic: "/cmd_vel"
+    odom_topic: "/odometry/wheels"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link" # Set this to the base frame of the robot
+    publish_tf: false # publish transform from odom frame to odom child frame
+    # estop_trigger_topic:
+    # estop_reset_topic:
+    # trim_topic:
+    # estop_state:
