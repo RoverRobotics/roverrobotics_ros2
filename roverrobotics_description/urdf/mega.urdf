@@ -5,7 +5,7 @@
     <xacro:property name="wheel_x_offset" value="0.29" />
     <xacro:property name="wheel_y_offset" value="0.27" />
     <xacro:property name="wheel_mass" value="7.484274" />
-    <xacro:property name="chassis_mass" value="12.2696" />
+    <xacro:property name="chassis_mass" value="33.00" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
     <!-- Comment or Uncomment any of these to add them to the dev payload -->
