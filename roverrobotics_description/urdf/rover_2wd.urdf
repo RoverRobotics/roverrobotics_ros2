@@ -15,7 +15,7 @@
     <!-- Part Includes - Payload, Sensors, Etc.. -->
     <!-- Comment or Uncomment any of these to add them to the dev payload -->
     <!-- You can always link them elsewhere if you wish by editing accessories/<sensor>.urdf -->
-    <xacro:property name="payload_z_offset" value="0.096" />
+    <xacro:property name="payload_z_offset" value="0.0513" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rplidar_s2.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/imu.urdf" />
