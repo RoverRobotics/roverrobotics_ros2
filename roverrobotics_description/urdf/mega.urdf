@@ -4,7 +4,7 @@
     <xacro:property name="wheel_z_offset" value="0.0312" />
     <xacro:property name="wheel_x_offset" value="0.29" />
     <xacro:property name="wheel_y_offset" value="0.27" />
-    <xacro:property name="wheel_mass" value="7.484274" />
+    <xacro:property name="wheel_mass" value="15.484274" />
     <xacro:property name="chassis_mass" value="33.00" />
 
     <!-- Part Includes - Payload, Sensors, Etc.. -->
