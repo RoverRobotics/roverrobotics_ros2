@@ -11,7 +11,7 @@ roverrobotics_driver:
     wheel_base: 0.605     # Distance between wheels side-to-side from the center of the wheel (meters)
     robot_length: 0.582   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 3.33 
-    max_velocity_step: 0.1 # Maximum velocity step for deceleration 
+    #max_velocity_step: 0.1 # Maximum velocity step for deceleration 
 
     # PID for wheel controllers and limits
     motor_control_p_gain: 0.0012 #0.00048 #0.0012
