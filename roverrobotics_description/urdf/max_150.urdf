@@ -1,7 +1,7 @@
 <robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_max">
 
     <!-- Robot Parameters -->
-    <xacro:property name="wheel_z_offset" value="0.023" />
+    <xacro:property name="wheel_z_offset" value="0.0225" />
     <xacro:property name="wheel_x_offset" value="0.22" />
     <xacro:property name="wheel_y_offset" value="0.2525" />
     <xacro:property name="wheel_mass" value="7.484274" />
@@ -10,8 +10,8 @@
     <!-- Part Includes - Payload, Sensors, Etc.. -->
     <!-- Comment or Uncomment any of these to add them to the dev payload -->
     <!-- You can always link them elsewhere if you wish by editing accessories/<sensor>.urdf -->
-    <!-- <xacro:property name="payload_z_offset" value="0.187" /> -->
-    <!-- <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" /> -->
+    <xacro:property name="payload_z_offset" value="0.1420" />
+    <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rplidar_s2.urdf" />
     <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/imu.urdf" />
 
@@ -42,7 +42,7 @@
     <joint name="base_to_chassis" type="fixed">
         <parent link="base_link"/>
         <child link="chassis_link"/>
-        <origin xyz="0 0 0.165"/>
+        <origin xyz="0 0 0.1645"/>
     </joint>
 
     <link name="fl_wheel_link">
