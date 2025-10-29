@@ -20,7 +20,9 @@ ProProtocolObject::ProProtocolObject(const char *device,
       REG_MOTOR_FB_CURRENT_LEFT, REG_MOTOR_FB_CURRENT_RIGHT,
       REG_MOTOR_TEMP_LEFT,       REG_MOTOR_TEMP_RIGHT,
       REG_MOTOR_CHARGER_STATE,   BuildNO,
-      BATTERY_VOLTAGE_A,         REG_PWR_BAT_VOLTAGE_A};
+      BATTERY_VOLTAGE_A,         REG_PWR_BAT_VOLTAGE_A,
+      REG_MOTOR_FLIPPER_ANGLE,   REG_FLIPPER_FB_POSITION_POT1,
+      REG_FLIPPER_FB_POSITION_POT2};
   pid_ = pid;
   PidGains oldgain = {pid_.kp, pid_.ki, pid_.kd};
   if (robot_mode_ != Control::OPEN_LOOP)
