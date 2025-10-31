@@ -5,34 +5,34 @@ struct robotData {
   // Motor Infos
   signed short int motor1_id;
   float motor1_rpm;
-  signed short int motor1_current;
+  float motor1_current;
   signed short int motor1_temp;
   signed short int motor1_mos_temp;
   signed short int motor2_id;
   float motor2_rpm;
-  signed short int motor2_current;
+  float motor2_current;
   signed short int motor2_temp;
   signed short int motor2_mos_temp;
   signed short int motor3_id;
   float motor3_rpm;
-  signed short int motor3_current;
+  float motor3_current;
   signed short int motor3_temp;
   signed short int motor3_mos_temp;
   signed short int motor4_id;
   float motor4_rpm;
-  signed short int motor4_current;
+  float motor4_current;
   signed short int motor4_temp;
   signed short int motor4_mos_temp;
 
   // Battery Infos
-  unsigned short int battery1_voltage;
-  unsigned short int battery2_voltage;
+  float battery1_voltage;
+  float battery2_voltage;
   signed short int battery1_temp;
   signed short int battery2_temp;
-  unsigned short int battery1_current;
-  unsigned short int battery2_current;
-  bool battery1_SOC;
-  bool battery2_SOC;
+  float battery1_current;
+  float battery2_current;
+  float battery1_SOC;
+  float battery2_SOC;
   unsigned short int battery1_fault_flag;
   unsigned short int battery2_fault_flag;
 

@@ -1,0 +1,80 @@
+LEFT_JOY_HORIZ:
+  type: axis
+  index: 0
+  exclusion: [-0.15, 0.15]
+  scale: 1
+  offset: 0
+LEFT_JOY_VERT:
+  type: axis
+  index: 1
+  exclusion: [-0.15, 0.15]
+  scale: 1.25
+  offset: 0
+RIGHT_JOY_HORIZ:
+  type: axis
+  index: 2
+  exclusion: [-0.15, 0.15]
+  scale: 2.5
+  offset: 0
+RIGHT_JOY_VERT:
+  type: axis
+  index: 5
+  exclusion: [-0.15, 0.15]
+  scale: -50
+  offset: 0
+RIGHT_TRIGGER:
+  type: axis
+  index: 4
+  exclusion: [0.0, 1.0]
+  scale: -1
+  offset: 0
+LEFT_TRIGGER:
+  type: axis
+  index: 3
+  exclusion: [0.0, 1.0]
+  scale: 1
+DPAD_HORIZ:
+  type: axis
+  index: 6
+  exclusion: [-0.15, 0.15]
+  scale: -1
+  offset: 0
+DPAD_VERT:
+  type: axis
+  index: 7
+  exclusion: [-0.15, 0.15]
+  scale: 1
+  offset: 0
+A:
+  type: button
+  index: 1
+B:
+  type: button
+  index: 2
+X:
+  type: button
+  index: 0
+Y:
+  type: button
+  index: 3
+LB:
+  type: button
+  index: 4
+RB:
+  type: button
+  index: 5
+BACK:
+  type: button
+  index: 8
+START:
+  type: button
+  index: 9
+GUIDE:
+  type: button
+  index: 13
+LEFT_JOY:
+  type: button
+  index: 10
+RIGHT_JOY:
+  type: button
+  index: 11

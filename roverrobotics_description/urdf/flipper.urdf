@@ -1,0 +1,204 @@
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_flipper">
+
+    <!-- Robot Parameters -->
+    <xacro:property name="wheel_z_offset" value="0.020" />
+    <xacro:property name="flipper_x_offset" value="0.145" />
+    <xacro:property name="front_flipper_x_offset" value="-0.0035" />
+    <xacro:property name="flipper_y_offset" value="0.18" />
+    <xacro:property name="track_y_offset" value="0.11" />
+    <xacro:property name="wheel_mass" value="1.2" /> <!-- Flipper weight -->
+    <xacro:property name="chassis_mass" value="6.5" />
+
+    <!-- Part Includes - Payload, Sensors, Etc.. -->
+    <!-- Comment or Uncomment any of these to add them to the dev payload -->
+    <!-- You can always link them elsewhere if you wish by editing accessories/<sensor>.urdf -->
+    <xacro:property name="payload_z_offset" value="0.0513" />
+    <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rover_dev_payload.urdf" />
+    <!-- <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/rplidar_s2.urdf" />
+    <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/imu.urdf" /> -->
+
+    <!-- Robot Definition -->
+    <link name="base_link" />
+    <link name="chassis_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.57 -0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_chassis.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="1.57 -0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_chassis.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <mass value="${chassis_mass}" />
+            <inertia ixx="0.028064" ixy="0.0"  ixz="0.0" iyy="0.08226" iyz="0.0" izz="0.10258" />
+        </inertial>
+    </link>
+
+    <joint name="base_to_chassis" type="fixed">
+        <parent link="base_link"/>
+        <child link="chassis_link"/>
+        <origin xyz="0 0 0.08"/>
+    </joint>
+
+    <link name="left_track_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="left_track_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="left_track_link"/>
+        <origin xyz="0 ${track_y_offset} 0"/>
+    </joint>
+
+    <link name="right_track_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="1.57 3.1415 0" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper_track.dae"/>
+            </geometry>
+        </collision>
+    </link>
+    <joint name="right_track_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="right_track_link"/>
+        <origin xyz="0 ${-track_y_offset} 0"/>
+    </joint>
+
+    <link name="fr_flipper_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="-1.57 0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="-1.57 0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0 0.01 0" rpy="0 0 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+        </inertial>
+        <mu>5.0</mu>
+    </link>
+    <joint name="fr_flipper_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="fr_flipper_link"/>
+        <origin xyz="${flipper_x_offset + front_flipper_x_offset} ${-flipper_y_offset} 0" rpy="0 -0.4 0"/>
+    </joint>
+
+    <link name="fl_flipper_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.57 0 -1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="1.57 0 -1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0 -0.01 0" rpy="0 0 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+        </inertial>
+        <mu>5.0</mu>
+    </link>
+    <joint name="fl_flipper_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="fl_flipper_link"/>
+        <origin xyz="${flipper_x_offset + front_flipper_x_offset} ${flipper_y_offset} 0" rpy="0 -0.4 0"/>
+    </joint>
+
+    <link name="br_flipper_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="1.29 0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="1.29 0 1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0 0.01 0" rpy="0 0 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+        </inertial>
+        <mu>5.0</mu>
+    </link>
+    <joint name="br_flipper_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="br_flipper_link"/>
+        <origin xyz="${-flipper_x_offset} ${-flipper_y_offset} 0"/>
+    </joint>
+
+    <link name="bl_flipper_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="-1.29 0 -1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="-1.29 0 -1.57" />
+            <geometry>
+                <mesh filename="file://$(find roverrobotics_description)/meshes/flipper.dae"/>
+            </geometry>
+        </collision>
+
+        <inertial>
+            <origin xyz="0 -0.01 0" rpy="0 0 0" />
+            <mass value="${wheel_mass}" />
+            <inertia ixx="0.0016667" ixy="0.0"  ixz="0.0" iyy="0.002903" iyz="0.0" izz="0.0016667" />
+        </inertial>
+        <mu>5.0</mu>
+    </link>
+    <joint name="bl_flipper_to_chassis" type="fixed">
+        <parent link="chassis_link"/>
+        <child link="bl_flipper_link"/>
+        <origin xyz="${-flipper_x_offset} ${flipper_y_offset} 0"/>
+    </joint>
+
+</robot>

@@ -5,25 +5,25 @@ roverrobotics_driver:
     motor_control_p_gain: 0.0011
     motor_control_i_gain: 0.000
     motor_control_d_gain: 0.00008
-    publish_tf: true
+    publish_tf: false
     # robot_status_topic: "/"
     # robot_status_frequency: 60.0
     # robot_info_request_topic:
     # robot_info_topic:
     robot_type: "zero2"
-    device_port: "/dev/rover-zero-v2"
+    device_port: "/dev/rover-control"
     comm_type: "serial"
     speed_topic: "/cmd_vel"
     # estop_trigger_topic:
     # estop_reset_topic:
     # trim_topic:
     # estop_state:
-    control_mode: "OPEN_LOOP"
+    control_mode: "INDEPENDENT_WHEEL" # Closed loop : INDEPENDENT_WHEEL | Open loop : OPEN_LOOP
     # linear_top_speed:
     # angular_top_speed:
-    odom_topic: "/odom_raw"
-    # odom_frame_id:
-    # odom_child_frame_id:
+    odom_topic: "/odometry/wheels"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link" # Set this to the base frame of the robot
     # angular_a_coef:
     # angular_b_coef:
     # angular_c_coef:
