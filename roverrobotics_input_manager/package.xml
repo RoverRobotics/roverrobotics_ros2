@@ -2,12 +2,11 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
     <name>roverrobotics_input_manager</name>
-    <version>0.1.1</version>
+    <version>1.0.2</version>
     <description>Contains Rover provided teleoperation applications.</description>
-    <maintainer email="info@roverrobotics.com">Rover Robotics</maintainer>
-    <license>BSD-3-Clause</license>
+    <maintainer email="jack@roverrobotics.com">Jack Rivera</maintainer>
+    <license>Apache-2.0</license>
 
-    <author email="will@roverrobotics.com">William Rook</author>
     <author email="info@roverrobotics.com">Rover Robotics</author>
 
     <buildtool_depend>ament_cmake</buildtool_depend>

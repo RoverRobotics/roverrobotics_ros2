@@ -8,7 +8,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     controller_config = Path(get_package_share_directory(
-        'roverrobotics_driver'), 'config', 'controller_config.yaml')
+        'roverrobotics_driver'), 'config', 'ps4_controller_config.yaml')
     assert controller_config.is_file()
     topics_config = Path(get_package_share_directory(
         'roverrobotics_driver'), 'config', 'topics.yaml')

@@ -1,5 +1,21 @@
 #include "roverrobotics_ros2_driver.hpp"
 using namespace RoverRobotics;
+#include <iostream>
+
+double inMin = 750.0;
+double inMax = 970.0;
+double outMin = 0.0;
+double outMax = 100.0;
+double mapValue(double x, double inMin, double inMax, double outMin, double outMax)
+{
+  if (x<inMin){
+    return 0.0;
+  }
+  else
+  {
+    return outMin + (x-inMin)*(outMax-outMin)/(inMax-inMin);
+  }
+}
 
 RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_intra_process_comms(false)), linear_accumulator_(10),
   angular_accumulator_(10){
@@ -36,6 +52,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   float pi_p_ = declare_parameter("motor_control_p_gain", PID_P_DEFAULT_);
   float pi_i_ = declare_parameter("motor_control_i_gain", PID_I_DEFAULT_);
   float pi_d_ = declare_parameter("motor_control_d_gain", PID_D_DEFAULT_);
+  linear_covariance = declare_parameter("linear_covariance", LIN_COVAR_DEFAULT);
+  yaw_covariance = declare_parameter("yaw_covariance", YAW_COVAR_DEFAULT);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -104,6 +122,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       robot_info_topic_, rclcpp::QoS(32));
   robot_status_publisher_ = create_publisher<std_msgs::msg::Float32MultiArray>(
       robot_status_topic_, rclcpp::QoS(31));
+  battery_soc_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
+      "rover_" + robot_type_ + "/battery_status", rclcpp::QoS(10));
   if (pub_odom_tf_) {
      RCLCPP_INFO(get_logger(),
                 "Publishing Robot TF on %s at %.2Fhz", odom_topic_.c_str(),
@@ -113,7 +133,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   odometry_publisher_ =
         create_publisher<nav_msgs::msg::Odometry>(odom_topic_, rclcpp::QoS(4));
 
-    odometry_timer_ =
+  odometry_timer_ =
         create_wall_timer(1s / odometry_frequency_, [=]() { update_odom(); });
   robot_status_timer_ = create_wall_timer(1s / robot_status_frequency_,
                                           [=]() { publish_robot_status(); });
@@ -176,14 +196,14 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       return;
     }
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
-  } else if (robot_type_ == "mini" || robot_type_ == "miti") {
+  } else if (robot_type_ == "mini" || robot_type_ == "miti" || robot_type_ == "max" || robot_type_ == "mega") {
     try {
       if (drivetrain_ == "differential") {
-        robot_ = std::make_unique<DifferentialRobot>(
-            device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
-      } else if (drivetrain_ == "mecanum") {
-        robot_ = std::make_unique<MecanumRobot>(
-            device_port_.c_str(), wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+      robot_ = std::make_unique<DifferentialRobot>(
+          device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+    } else if (drivetrain_ == "mecanum") {
+      robot_ = std::make_unique<MecanumRobot>(
+          device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
       }
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
@@ -191,7 +211,7 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
         RCLCPP_FATAL(get_logger(), "Robot at %s is not available. Check that port is available and permissions allow access.", device_port_.c_str());
       } else if (i == -2) {
         RCLCPP_FATAL(get_logger(),
-                     "This communication method is not supported on this robot. Please check the config files.");
+                     "Error in the socket bind. Either could not find or access %s. Please check the device exists and has correct permissions.", device_port_.c_str());
       } else {
         RCLCPP_FATAL(get_logger(), "Unknown Error Occurred. Please try power cycling.");
       }
@@ -276,6 +296,20 @@ void RobotDriver::publish_robot_status() {
   robot_status.data.push_back(robot_data_.motor3_sensor1);
   robot_status.data.push_back(robot_data_.motor3_sensor2);
   robot_status_publisher_->publish(robot_status);
+
+
+  // Battery Status Topic
+  auto battery_msg = sensor_msgs::msg::BatteryState();
+  if (robot_type_ != "pro"){
+    battery_msg.percentage = robot_data_.battery1_SOC;
+    battery_msg.voltage = robot_data_.battery1_voltage;
+    battery_msg.current = robot_data_.battery1_current;
+  } else {
+    battery_msg.percentage = mapValue(robot_data_.battery1_SOC, inMin, inMax, outMin, outMax);
+    battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the nu. is divided by 29.94 to get the value in the actual range 
+    battery_msg.current = robot_data_.battery2_current;
+  }
+  battery_soc_publisher_->publish(battery_msg);
 }
 
 void RobotDriver::update_odom() {
@@ -357,14 +391,13 @@ void RobotDriver::update_odom() {
   // If not moving, trust the encoders completely
   // Otherwise set them to the ROS param
   
-  
   if (robot_data_.linear_vel == 0 && robot_data_.angular_vel == 0)
   {
-    odom.twist.covariance[0] = 0.00000001;
-    odom.twist.covariance[7] = 0.00000001;
-    odom.twist.covariance[35] = 0.00000001;
+    odom.twist.covariance[0] = linear_covariance;
+    odom.twist.covariance[7] = linear_covariance;
+    odom.twist.covariance[35] = yaw_covariance;
   }
-  else
+   else
   {
     odom.twist.covariance[0] = 0.15;
     odom.twist.covariance[7] = 0.15;

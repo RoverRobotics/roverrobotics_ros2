@@ -1,7 +1,7 @@
 roverrobotics_driver:
   ros__parameters:
     # Robot Parameters
-    drivetrain: "differential"   # differential, mecanum
+    drivetrain: "mecanum"   # differential, mecanum
     robot_type: "mini"
     comm_type: "can"
     device_port: "can0" # "can0" for differential/mecanum | "internal" for differential/mecanum with blue-ox board

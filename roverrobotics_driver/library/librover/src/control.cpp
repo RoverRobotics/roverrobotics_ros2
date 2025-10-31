@@ -22,7 +22,6 @@ motor_data computeSkidSteerWheelSpeeds(robot_velocities target_velocities,
       (left_travel_rate / robot_geometry.wheel_radius) / RPM_TO_RADS_SEC;
   float right_wheel_speed =
       (right_travel_rate / robot_geometry.wheel_radius) / RPM_TO_RADS_SEC;
-
   motor_data returnstruct = {left_wheel_speed, right_wheel_speed,
                              left_wheel_speed, right_wheel_speed};
   return returnstruct;
@@ -136,21 +135,19 @@ robot_velocities limitAcceleration(robot_velocities target_velocities,
   }
 
   /* TODO: fix this */
-  // if (std::abs(angular_acceleration) >
-  //     std::abs(delta_v_limits.angular_velocity))
-  // {
-  //   std::signbit(linear_acceleration)
-  //       ? angular_acceleration = -delta_v_limits.angular_velocity
-  //       : angular_acceleration = delta_v_limits.angular_velocity;
-  // }
+  if (std::abs(angular_acceleration) >
+      std::abs(delta_v_limits.angular_velocity))
+  {
+    std::signbit(angular_acceleration)
+        ? angular_acceleration = -delta_v_limits.angular_velocity
+        : angular_acceleration = delta_v_limits.angular_velocity;
+  }
 
   /* calculate new velocities */
   robot_velocities return_velocities;
-  return_velocities.linear_velocity =
-      measured_velocities.linear_velocity + linear_acceleration * dt;
-  return_velocities.trans_velocity = measured_velocities.trans_velocity + linear_acceleration * dt;
-  // return_velocities.angular_velocity =
-  //     measured_velocities.angular_velocity + angular_acceleration * dt;
+  return_velocities.linear_velocity = measured_velocities.linear_velocity + linear_acceleration * dt;
+  return_velocities.trans_velocity = measured_velocities.trans_velocity + trans_acceleration * dt;
+  // return_velocities.angular_velocity = measured_velocities.angular_velocity + angular_acceleration * dt;
   return_velocities.angular_velocity = target_velocities.angular_velocity;
 #ifdef DEBUG
   std::cerr << "target " << target_velocities.linear_velocity << std::endl;
@@ -173,8 +170,8 @@ robot_velocities scaleAngularCommand(robot_velocities target_velocities,
 
   return (robot_velocities){
       .linear_velocity = target_velocities.linear_velocity,
-      .angular_velocity =
-          target_velocities.angular_velocity * angular_scale_factor};
+      .trans_velocity = target_velocities.trans_velocity,
+      .angular_velocity = target_velocities.angular_velocity * angular_scale_factor};
 }
 
 /* classes */

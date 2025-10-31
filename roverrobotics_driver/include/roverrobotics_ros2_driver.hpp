@@ -22,10 +22,10 @@
 #include "rcppmath/rolling_mean_accumulator.hpp"
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float32.hpp"
+#include "sensor_msgs/msg/battery_state.hpp"
 #include "std_msgs/msg/float32_multi_array.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 #include "tf2_ros/transform_broadcaster.h"
-// #include <librover/status_data.hpp>
 using namespace std::chrono_literals;
 
 using duration = std::chrono::nanoseconds;
@@ -54,13 +54,15 @@ class RobotDriver : public rclcpp::Node {
   const std::string ESTOP_RESET_TOPIC_DEFAULT_ = "/soft_estop/reset";
   const std::string TRIM_TOPIC_DEFAULT_ = "/trim_event";
   const bool ESTOP_STATE_DEFAULT_ = false;
-  const std::string CONTROL_MODE_DEFAULT_ = "OPEN_LOOP";
+  const std::string CONTROL_MODE_DEFAULT_ = "INDEPENDENT_WHEEL";
   const float LINEAR_TOP_SPEED_DEFAULT_ = 2;
   const float ANGULAR_TOP_SPEED_DEFAULT_ = 2;
   const bool PUB_ODOM_TF_DEFAULT_ = false;
   const float PID_P_DEFAULT_ = 0;
   const float PID_I_DEFAULT_ = 0;
   const float PID_D_DEFAULT_ = 0;
+  const float LIN_COVAR_DEFAULT = 0.05;
+  const float YAW_COVAR_DEFAULT = 0.4;
   const float ROBOT_ODOM_FREQUENCY_DEFAULT_ = 30;
   Control::angular_scaling_params angular_scaling_params_ = {0, 0, 0, 0, 0};
   const float ANGULAR_SCALING_A_DEFAULT_ = 0;
@@ -71,7 +73,6 @@ class RobotDriver : public rclcpp::Node {
   const float WHEEL_RADIUS_DEFAULT_ = 0.08255;
   const float WHEEL_BASE_DEFAULT_ = 0.28575;
   const float ROBOT_LENGTH_DEFAULT_ = 0.2159;
-  
   // robot protocol pointer
   std::unique_ptr<BaseProtocolObject> robot_;
   // universal robot data structure
@@ -95,6 +96,8 @@ class RobotDriver : public rclcpp::Node {
       robot_status_publisher_;  // publish robot state
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr
       odometry_publisher_;  // Odom Publisher
+   rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr
+      battery_soc_publisher_;  // Battery Status Publisher
   std::unique_ptr<tf2_ros::TransformBroadcaster> odom_tf_pub; // Odom TF Broadcaster
 
   // Timepoint / Timer
@@ -131,6 +134,8 @@ class RobotDriver : public rclcpp::Node {
   bool estop_state_;
   std::string control_mode_name_;
   Control::robot_motion_mode_t control_mode_;
+  float linear_covariance;
+  float yaw_covariance;
   double linear_top_speed_;
   double angular_top_speed_;
 

@@ -5,7 +5,7 @@ project(roverrobotics_driver)
 add_compile_options(-std=c++17)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-    add_compile_options(-g -Wall -Wextra -Wpedantic)
+    add_compile_options(-g)
 endif()
 
 find_package(ament_cmake REQUIRED)
@@ -16,6 +16,7 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 #find_package(diagnostic_updater REQUIRED)
 
 #include_directories(include/)
@@ -35,7 +36,6 @@ add_executable(roverrobotics_driver
   library/librover/src/comm_serial.cpp
   library/librover/src/utils.cpp
   library/librover/src/comm_can.cpp
-  #library/librover/src/comm_can_spi.cpp
   library/librover/src/control.cpp
   library/librover/src/vesc.cpp
   library/librover/src/utilities.cpp
@@ -60,12 +60,14 @@ ament_target_dependencies(roverrobotics_driver
   #rover_msgs
   nav_msgs
   tf2_geometry_msgs
+  sensor_msgs
   #diagnostic_updater
   )
 
 install(DIRECTORY
   launch
   config
+  maps
   DESTINATION share/${PROJECT_NAME})
 
 install(TARGETS

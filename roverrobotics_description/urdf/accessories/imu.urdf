@@ -1,0 +1,26 @@
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="imu">
+    
+    <link name="imu_link"/>
+
+    <joint name="imu_to_payload" type="fixed">
+        <parent link="payload_link"/>
+        <child link="imu_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="imu_link">
+        <sensor name="imu" type="imu">
+            <always_on>1</always_on>
+            <update_rate>50</update_rate>
+            <visualize>true</visualize>
+            <topic>imu/data</topic>
+            <enable_metrics>true</enable_metrics>
+            <ignition_frame_id>imu_link</ignition_frame_id>
+        </sensor>
+    </gazebo>
+
+    <gazebo>
+        <plugin filename="libignition-gazebo-imu-system" name="ignition::gazebo::systems::Imu"/>
+    </gazebo>
+
+</robot>
