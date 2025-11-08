@@ -66,10 +66,8 @@
                         <diffuse>0.8 0.8 0.8 1</diffuse>
                         <specular>0.8 0.8 0.8 1</specular>
                     </material>
-                    <plugin name='__default__' filename='__default__' />
                 </visual>
             </link>
-            <plugin name='__default__' filename='__default__' />
             <pose>0 0 0 0 -0 0</pose>
         </model>
 
@@ -78,7 +76,6 @@
             <static>true</static>
             <link name='wall1'>
                 <pose>-10.005 0 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall1_collision'>
                     <geometry>
                         <box>
@@ -101,7 +98,6 @@
             </link>
             <link name='wall2'>
                 <pose>10.005 0 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall2_collision'>
                     <geometry>
                         <box>
@@ -124,7 +120,6 @@
             </link>
             <link name='wall3'>
                 <pose>0 10.005 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall3_collision'>
                     <geometry>
                         <box>
@@ -147,18 +142,12 @@
             </link>
             <link name='wall4'>
                 <pose>0 -10.005 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall4_collision'>
                     <geometry>
                         <box>
                             <size>20 0.01 2</size>
                         </box>
                     </geometry>
-                    <material>
-                        <ambient>0.1 0.1 0.1 1</ambient>
-                        <diffuse>0 0.01 0.05 1</diffuse>
-                        <specular>0 0.01 0.05 1</specular>
-                    </material>
                 </collision>
                 <visual name='wall4_visual'>
                     <geometry>
@@ -180,7 +169,6 @@
             <static>true</static>
             <link name='wall1'>
                 <pose>-6.5 -9 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall1_collision'>
                     <geometry>
                         <box>
@@ -204,7 +192,6 @@
 
             <link name='wall2'>
                 <pose>-8.5 -6.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall2_collision'>
                     <geometry>
                         <box>
@@ -228,7 +215,6 @@
 
             <link name='wall3'>
                 <pose>-3.5 -7 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall3_collision'>
                     <geometry>
                         <box>
@@ -252,7 +238,6 @@
 
             <link name='wall4'>
                 <pose>2.5 -9 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall4_collision'>
                     <geometry>
                         <box>
@@ -276,7 +261,6 @@
 
             <link name='wall5'>
                 <pose>7 -8.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall5_collision'>
                     <geometry>
                         <box>
@@ -300,7 +284,6 @@
 
             <link name='wall6'>
                 <pose>-9 -0.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall6_collision'>
                     <geometry>
                         <box>
@@ -324,7 +307,6 @@
 
             <link name='wall7'>
                 <pose>-8.5 -2.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall7_collision'>
                     <geometry>
                         <box>
@@ -348,7 +330,6 @@
 
             <link name='wall8'>
                 <pose>-4.5 -1.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall8_collision'>
                     <geometry>
                         <box>
@@ -372,7 +353,6 @@
 
             <link name='wall9'>
                 <pose>-6 1 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall9_collision'>
                     <geometry>
                         <box>
@@ -396,7 +376,6 @@
 
             <link name='wall10'>
                 <pose>-7.5 4.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall10_collision'>
                     <geometry>
                         <box>
@@ -420,7 +399,6 @@
 
             <link name='wall11'>
                 <pose>-3 7.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall11_collision'>
                     <geometry>
                         <box>
@@ -443,7 +421,6 @@
             </link>
             <link name='wall12'>
                 <pose>0 5.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall12_collision'>
                     <geometry>
                         <box>
@@ -467,7 +444,6 @@
 
             <link name='wall13'>
                 <pose>0 -2.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall13_collision'>
                     <geometry>
                         <box>
@@ -491,7 +467,6 @@
 
             <link name='wall14'>
                 <pose>-0.5 -1.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall14_collision'>
                     <geometry>
                         <box>
@@ -515,7 +490,6 @@
 
             <link name='wall15'>
                 <pose>-0.5 -4.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall15_collision'>
                     <geometry>
                         <box>
@@ -539,7 +513,6 @@
 
             <link name='wall16'>
                 <pose>0.5 -5.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall16_collision'>
                     <geometry>
                         <box>
@@ -563,7 +536,6 @@
 
             <link name='wall17'>
                 <pose>2.5 -4.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall17_collision'>
                     <geometry>
                         <box>
@@ -587,7 +559,6 @@
 
             <link name='wall18'>
                 <pose>4.5 -5.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall18_collision'>
                     <geometry>
                         <box>
@@ -611,7 +582,6 @@
 
             <link name='wall19'>
                 <pose>6.5 -4.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall19_collision'>
                     <geometry>
                         <box>
@@ -635,7 +605,6 @@
 
             <link name='wall20'>
                 <pose>8.5 -5.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall20_collision'>
                     <geometry>
                         <box>
@@ -659,7 +628,6 @@
 
             <link name='wall21'>
                 <pose>9.5 -4.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall21_collision'>
                     <geometry>
                         <box>
@@ -683,7 +651,6 @@
 
             <link name='wall22'>
                 <pose>3.5 -0.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall22_collision'>
                     <geometry>
                         <box>
@@ -707,7 +674,6 @@
 
             <link name='wall23'>
                 <pose>7 0.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall23_collision'>
                     <geometry>
                         <box>
@@ -731,7 +697,6 @@
 
             <link name='wall24'>
                 <pose>7.5 2 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall24_collision'>
                     <geometry>
                         <box>
@@ -755,7 +720,6 @@
 
             <link name='wall25'>
                 <pose>1.5 5.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall25_collision'>
                     <geometry>
                         <box>
@@ -779,7 +743,6 @@
 
             <link name='wall26'>
                 <pose>2.5 6 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall26_collision'>
                     <geometry>
                         <box>
@@ -803,7 +766,6 @@
 
             <link name='wall27'>
                 <pose>3.5 7.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall27_collision'>
                     <geometry>
                         <box>
@@ -827,7 +789,6 @@
 
             <link name='wall28'>
                 <pose>4.5 8.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall28_collision'>
                     <geometry>
                         <box>
@@ -851,7 +812,6 @@
 
             <link name='wall29'>
                 <pose>5.5 9 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall29_collision'>
                     <geometry>
                         <box>
@@ -875,7 +835,6 @@
 
             <link name='wall30'>
                 <pose>6.5 9.5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall30_collision'>
                     <geometry>
                         <box>
@@ -899,7 +858,6 @@
 
             <link name='wall31'>
                 <pose>4.5 3 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall31_collision'>
                     <geometry>
                         <box>
@@ -923,7 +881,6 @@
 
             <link name='wall32'>
                 <pose>5.5 4 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall32_collision'>
                     <geometry>
                         <box>
@@ -947,7 +904,6 @@
 
             <link name='wall33'>
                 <pose>6.5 5 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall33_collision'>
                     <geometry>
                         <box>
@@ -971,7 +927,6 @@
 
             <link name='wall34'>
                 <pose>7.5 6 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall34_collision'>
                     <geometry>
                         <box>
@@ -995,7 +950,6 @@
 
             <link name='wall35'>
                 <pose>8.5 7 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall35_collision'>
                     <geometry>
                         <box>
@@ -1019,7 +973,6 @@
 
             <link name='wall36'>
                 <pose>9.5 8 0 0 0 0</pose>
-                <static>true</static>
                 <collision name='wall36_collision'>
                     <geometry>
                         <box>

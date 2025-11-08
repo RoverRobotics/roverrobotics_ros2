@@ -14,6 +14,12 @@ from launch_ros.parameter_descriptions import ParameterValue
 def generate_launch_description():
     # Create the launch configuration variables
     use_sim_time = LaunchConfiguration('use_sim_time')
+    pose = {'x': LaunchConfiguration('x_pose', default='0.00'),
+            'y': LaunchConfiguration('y_pose', default='0.00'),
+            'z': LaunchConfiguration('z_pose', default='0.01'),
+            'R': LaunchConfiguration('roll', default='0.00'),
+            'P': LaunchConfiguration('pitch', default='0.00'),
+            'Y': LaunchConfiguration('yaw', default='0.00')}
     urdf = os.path.join(get_package_share_directory(
         'roverrobotics_description'), 'urdf', 'rover_2wd.urdf')
     world = LaunchConfiguration('world')
@@ -49,9 +55,10 @@ def generate_launch_description():
         executable="create",
         arguments=[
             "-topic", "/robot_description",
-            "-name", "rover_miti",
+            "-name", "rover_zero2wd",
             "-allow_renaming", "true",
-            "-z", "0.1",
+            "-x", pose['x'], "-y", pose['y'], "-z", pose['z'],
+            "-R", pose['R'], "-P", pose['P'], "-Y", pose['Y'],
         ]
     )
     
