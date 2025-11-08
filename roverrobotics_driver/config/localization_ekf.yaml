@@ -1,7 +1,7 @@
 ### ekf config file ###
 ekf_filter_node:
     ros__parameters:
-        use_sim_time: false
+        use_sim_time: True
         frequency: 15.0
         sensor_timeout: 1.0
         two_d_mode: true
