@@ -1,0 +1,34 @@
+roverrobotics_driver:
+  ros__parameters:
+    # --- Robot selection ---
+    drivetrain: "differential"   # differential, mecanum
+    robot_type: "mini_2wd"
+    comm_type: "serial"
+    device_port: "/dev/rover-control"         # or "/dev/ttyACM0" if using UART
+
+    # --- Geometry (meters) ---
+    wheel_radius: 0.082760  # Wheel radius (meters)
+    wheel_base: 0.31     # Distance between wheels side-to-side from the center of the wheel (meters)
+    robot_length: 0.2659   # Distance between wheels front-to-back from center of the wheel (meters)
+    gear_ratio: 1.0
+
+
+    # --- Control ---          
+    control_mode: "INDEPENDENT_WHEEL"
+    motor_control_p_gain: 0.00006
+    motor_control_i_gain: 0.000000
+    motor_control_d_gain: 0.000005
+
+    diagnostics_frequency: 0.2
+    odometry_frequency: 15.0
+
+    # --- Topics/Frames ---
+    speed_topic: "/cmd_vel"
+    odom_topic: "/odometry/wheels"
+    odom_frame_id: "odom"
+    odom_child_frame_id: "base_link"
+    publish_tf: False
+    # Optional: estop/trim topics if you use them
+    # estop_trigger_topic: "/soft_estop/trigger"
+    # estop_reset_topic:   "/soft_estop/reset"
+    # trim_topic:          "/trim_event"
