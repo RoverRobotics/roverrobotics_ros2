@@ -10,6 +10,7 @@
 
 #include "protocol_pro.hpp"
 #include "protocol_zero_2.hpp"
+#include "protocol_mini_2wd_serial.hpp"
 #include "differential_robot.hpp"
 #include "global_error_constants.hpp"
 

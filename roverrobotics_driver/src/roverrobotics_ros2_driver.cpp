@@ -195,6 +195,28 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       return;
     }
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
+  } else if (robot_type_ == "mini_2wd") {
+    try {
+      robot_ = std::make_unique<Mini2WDProtocolObject>(
+          device_port_.c_str(),
+          comm_type_,
+          control_mode_,
+          pid_gains_,
+          angular_scaling_params_
+      );
+    } catch (int i) {
+      RCLCPP_FATAL(get_logger(), "Error when connecting to Mini 2WD.");
+      if (i == SOCKET_CREATION_ERROR) {
+        RCLCPP_FATAL(get_logger(), "Device %s unavailable or permission denied.", device_port_.c_str());
+      } else if (i == -2) {
+        RCLCPP_FATAL(get_logger(), "mini_2wd requires comm_type=serial.");
+      } else {
+        RCLCPP_FATAL(get_logger(), "Unknown error.");
+      }
+      rclcpp::shutdown();
+      return;
+    }
+    RCLCPP_INFO(get_logger(), "Connected to Mini 2WD at %s", device_port_.c_str());
   } else if (robot_type_ == "mini" || robot_type_ == "miti" || robot_type_ == "max" || robot_type_ == "mega") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
