@@ -1,4 +1,4 @@
-<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="rover_miti_payload">
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="mega_payload">
     
     <link name="payload_link">
         <visual>
