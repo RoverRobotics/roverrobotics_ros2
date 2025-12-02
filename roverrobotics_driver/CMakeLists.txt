@@ -40,6 +40,7 @@ add_executable(roverrobotics_driver
   library/librover/src/vesc.cpp
   library/librover/src/utilities.cpp
   library/librover/src/protocol_zero_2.cpp
+  library/librover/src/protocol_mini_2wd_serial.cpp
   library/librover/src/differential_robot.cpp)
 
 #target_link_libraries(roverrobotics_driver librover)
