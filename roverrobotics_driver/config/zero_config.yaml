@@ -2,6 +2,8 @@ roverrobotics_driver:
   ros__parameters:
     diagnostics_frequency: 0.2
     odometry_frequency: 15.0
+    pose_linear_covariance: 0.1   # x/y uncertainty of the dead-reckoned pose
+    pose_yaw_covariance: 0.5      # yaw uncertainty of the dead-reckoned pose
     motor_control_p_gain: 0.0011
     motor_control_i_gain: 0.000
     motor_control_d_gain: 0.00008
@@ -11,9 +13,12 @@ roverrobotics_driver:
     # robot_info_request_topic:
     # robot_info_topic:
     robot_type: "zero2"
+    serial_number: ""            # unit serial; any text. Published latched on rover_<type>/serial_number
     device_port: "/dev/rover-control"
     comm_type: "serial"
     speed_topic: "/cmd_vel"
+    max_velocity_step: 0.75       # max reduction in linear velocity per 50 ms cycle
+    cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
     # estop_trigger_topic:
     # estop_reset_topic:
     # trim_topic:

@@ -158,10 +158,20 @@ pid_gains PidController::getGains() {
   pid_gains.kd = kd_;
   return pid_gains;
 }
-
+void SkidRobotMotionController::setWheelTrims(float fl, float fr, float rl, float rr) {
+  trim_fl_ = fl;
+  trim_fr_ = fr;
+  trim_rl_ = rl;
+  trim_rr_ = rr;
+}
 void SkidRobotMotionController::setTrim(float left_trim, float right_trim) {
   left_trim_value_ = left_trim;
   right_trim_value_ = right_trim;
+  /* runMotionControl() reads the per-wheel trims */
+  trim_fl_ = left_trim;
+  trim_rl_ = left_trim;
+  trim_fr_ = right_trim;
+  trim_rr_ = right_trim;
 }
 float SkidRobotMotionController::getLeftTrim() {
   return left_trim_value_;
@@ -187,6 +197,12 @@ void PidController::setIntegralErrorLimit(float error_limit) {
 }
 
 float PidController::getIntegralErrorLimit() { return integral_error_limit_; }
+
+void PidController::reset() {
+  integral_error_ = 0;
+  previous_error_ = 0;
+  time_last_ = std::chrono::steady_clock::now();
+}
 
 void PidController::writePidDataToCsv(std::ofstream &log_file,
                                       pid_outputs data) {
@@ -309,7 +325,9 @@ SkidRobotMotionController::SkidRobotMotionController(
 SkidRobotMotionController::SkidRobotMotionController(
     robot_motion_mode_t operating_mode, robot_geometry robot_geometry,
     pid_gains pid_gains, float max_motor_duty, float min_motor_duty,
-    float left_trim, float right_trim, float geometric_decay)
+    float left_trim, float right_trim, float geometric_decay,
+    float rest_wheel_rpm, float brake_band_duty, float brake_band_rpm,
+    float rpm_per_duty)
     : log_folder_path_("~/Documents/"),
       duty_cycles_({0}),
       measured_velocities_({0}),
@@ -358,8 +376,79 @@ SkidRobotMotionController::SkidRobotMotionController(
   left_trim_value_ = left_trim;
   right_trim_value_ = right_trim;
   geometric_decay_ = geometric_decay;
+  rest_wheel_rpm_ = rest_wheel_rpm;
+  brake_band_duty_ = brake_band_duty;
+  brake_band_rpm_ = brake_band_rpm;
+  if (rpm_per_duty > 0.0f) rpm_per_duty_ = rpm_per_duty;
+  if (brake_band_duty_ > 0.0f && operating_mode_ == TRACTION_CONTROL) {
+    std::cerr << "brake_band_duty ignored in TRACTION_CONTROL" << std::endl;
+  }
 
   initializePids();
+}
+
+void SkidRobotMotionController::resetStopState() {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  duty_cycles_ = {0, 0, 0, 0};
+  /* only the pids of the active operating mode exist */
+  for (auto *pid : {&pid_controller_fl_, &pid_controller_fr_, &pid_controller_rl_,
+                    &pid_controller_rr_, &pid_controller_left_,
+                    &pid_controller_right_}) {
+    if (*pid) (*pid)->reset();
+  }
+  for (int i = 0; i < 4; i++) {
+    brake_off_[i] = false;
+    brake_scale_[i] = 1.0f;
+    brake_collapse_[i] = false;
+    brake_min_[i] = std::numeric_limits<float>::max();
+    brake_stall_[i] = 0;
+  }
+}
+
+void SkidRobotMotionController::limitBrakeDuty_(bool stop, motor_data target,
+                                                motor_data rpm) {
+  float *duty[4] = {&duty_cycles_.fl, &duty_cycles_.fr, &duty_cycles_.rl,
+                    &duty_cycles_.rr};
+  const float w[4] = {rpm.fl, rpm.fr, rpm.rl, rpm.rr};
+  const float tg[4] = {target.fl, target.fr, target.rl, target.rr};
+  for (int i = 0; i < 4; i++) {
+    const float speed = std::abs(w[i]);
+    const float dir = std::copysign(1.0f, w[i]);
+    /* not rolling faster than commanded: no braking episode */
+    if (speed < rest_wheel_rpm_ || dir * tg[i] >= speed - BRAKE_ENTRY_RPM_) {
+      brake_min_[i] = speed;
+      brake_stall_[i] = 0;
+      brake_scale_[i] = 1.0f;
+      brake_off_[i] = false;
+      brake_collapse_[i] = false;
+      continue;
+    }
+    if (speed < brake_min_[i] - 1.0f) {
+      brake_min_[i] = speed;
+      brake_stall_[i] = 0;
+    } else {
+      brake_stall_[i]++;
+    }
+    /* speeding up (downhill): hand the wheel back to the PID */
+    if (speed > brake_min_[i] + STOP_REGROW_RPM_) brake_off_[i] = true;
+    if (brake_off_[i]) continue;
+    /* not slowing: at low speed hand back to the PID, at speed widen the band step by step */
+    if (brake_stall_[i] >= STOP_STALL_TICKS_) {
+      brake_stall_[i] = 0;
+      if (speed < BRAKE_ESCAPE_RPM_) brake_off_[i] = true;
+      if (brake_scale_[i] >= BRAKE_WIDEN_MAX_) brake_collapse_[i] = true;
+      brake_scale_[i] = std::min(brake_scale_[i] * BRAKE_WIDEN_, BRAKE_WIDEN_MAX_);
+    }
+    if (brake_off_[i]) continue;
+    float band = brake_band_duty_ * brake_scale_[i];
+    if (brake_band_rpm_ > 0.0f && speed > brake_band_rpm_)
+      band *= brake_band_rpm_ / speed;
+    float floor = brake_collapse_[i] ? 0.0f : speed / rpm_per_duty_ - band;
+    /* on a stop never plug a rolling wheel */
+    if (stop) floor = std::max(floor, 0.0f);
+    floor = std::min(floor, max_motor_duty_);
+    if (dir * *duty[i] < floor) *duty[i] = dir * floor;
+  }
 }
 
 void SkidRobotMotionController::initializePids() {
@@ -648,14 +737,14 @@ motor_data SkidRobotMotionController::runMotionControl(
       computeSkidSteerWheelSpeeds(velocity_commands, robot_geometry_);
 
   /* apply trim value to targets */
-  target_wheel_speeds.fl *= left_trim_value_;
-  target_wheel_speeds.rl *= left_trim_value_;
-  target_wheel_speeds.fr *= right_trim_value_;
-  target_wheel_speeds.rr *= right_trim_value_;
+  target_wheel_speeds.fl *= trim_fl_;
+  target_wheel_speeds.fr *= trim_fr_;
+  target_wheel_speeds.rl *= trim_rl_;
+  target_wheel_speeds.rr *= trim_rr_;
 
   /* do control */
   motor_data motor_duties_add;
-  motor_data modified_duties;
+  motor_data modified_duties = {0, 0, 0, 0};
   switch (operating_mode_) {
     case OPEN_LOOP:
       duty_cycles_.fr = target_wheel_speeds.fr / open_loop_max_wheel_rpm_;
@@ -684,6 +773,45 @@ motor_data SkidRobotMotionController::runMotionControl(
       duty_cycles_.rr *= geometric_decay_;
       duty_cycles_.rl *= geometric_decay_;
 
+      /* clamp the state, not just the output, so it cannot wind up */
+      duty_cycles_.fl = std::clamp(duty_cycles_.fl, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.fr = std::clamp(duty_cycles_.fr, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.rr = std::clamp(duty_cycles_.rr, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.rl = std::clamp(duty_cycles_.rl, -max_motor_duty_, max_motor_duty_);
+
+      if (brake_band_duty_ > 0.0f) {
+        motor_data raw_targets =
+            computeSkidSteerWheelSpeeds(velocity_targets, robot_geometry_);
+        raw_targets.fl *= trim_fl_;
+        raw_targets.fr *= trim_fr_;
+        raw_targets.rl *= trim_rl_;
+        raw_targets.rr *= trim_rr_;
+        limitBrakeDuty_(isStopCommand_(velocity_targets), raw_targets,
+                        current_wheel_speeds);
+      }
+
+      /* on a commanded stop, release each nearly still wheel so leftover duty can't rock it */
+      if (isStopCommand_(velocity_targets)) {
+        pid_mutex_.lock();
+        if (std::abs(current_wheel_speeds.fl) < rest_wheel_rpm_) {
+          duty_cycles_.fl = 0;
+          pid_controller_fl_->reset();
+        }
+        if (std::abs(current_wheel_speeds.fr) < rest_wheel_rpm_) {
+          duty_cycles_.fr = 0;
+          pid_controller_fr_->reset();
+        }
+        if (std::abs(current_wheel_speeds.rl) < rest_wheel_rpm_) {
+          duty_cycles_.rl = 0;
+          pid_controller_rl_->reset();
+        }
+        if (std::abs(current_wheel_speeds.rr) < rest_wheel_rpm_) {
+          duty_cycles_.rr = 0;
+          pid_controller_rr_->reset();
+        }
+        pid_mutex_.unlock();
+      }
+
       /* don't allow duties higher or lower than the limits */
       modified_duties = clipDutyCycles_(duty_cycles_);
 
@@ -705,6 +833,11 @@ motor_data SkidRobotMotionController::runMotionControl(
       duty_cycles_.fr *= geometric_decay_;
       duty_cycles_.rr *= geometric_decay_;
       duty_cycles_.rl *= geometric_decay_;
+
+      duty_cycles_.fl = std::clamp(duty_cycles_.fl, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.fr = std::clamp(duty_cycles_.fr, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.rr = std::clamp(duty_cycles_.rr, -max_motor_duty_, max_motor_duty_);
+      duty_cycles_.rl = std::clamp(duty_cycles_.rl, -max_motor_duty_, max_motor_duty_);
 
       /* run traction control */
       modified_duties =

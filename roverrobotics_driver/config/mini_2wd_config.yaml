@@ -3,6 +3,7 @@ roverrobotics_driver:
     # --- Robot selection ---
     drivetrain: "differential"   # differential, mecanum
     robot_type: "mini_2wd"
+    serial_number: ""            # unit serial; any text. Published latched on rover_<type>/serial_number
     comm_type: "serial"
     device_port: "/dev/rover-control"         # or "/dev/ttyACM0" if using UART
 
@@ -10,9 +11,9 @@ roverrobotics_driver:
     wheel_radius: 0.082760  # Wheel radius (meters)
     wheel_base: 0.31     # Distance between wheels side-to-side from the center of the wheel (meters)
     robot_length: 0.2659   # Distance between wheels front-to-back from center of the wheel (meters)
-    gear_ratio: 1.0
-
-
+    gear_ratio: 1.0   # direct drive, no gearbox: leave at 1.0
+    max_velocity_step: 0.75       # max reduction in linear velocity per 50 ms cycle
+    cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
     # --- Control ---          
     control_mode: "INDEPENDENT_WHEEL"
     motor_control_p_gain: 0.00006
@@ -21,6 +22,8 @@ roverrobotics_driver:
 
     diagnostics_frequency: 0.2
     odometry_frequency: 15.0
+    pose_linear_covariance: 0.1   # x/y uncertainty of the dead-reckoned pose
+    pose_yaw_covariance: 0.5      # yaw uncertainty of the dead-reckoned pose
 
     # --- Topics/Frames ---
     speed_topic: "/cmd_vel"

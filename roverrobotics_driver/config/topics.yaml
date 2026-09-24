@@ -17,3 +17,11 @@ joy_manager:
       x: 0
       y: RIGHT_JOY_VERT
       z: RIGHT_JOY_HORIZ
+soft_estop_trigger:
+  topic: /soft_estop/trigger
+  type: Bool
+  button: B
+soft_estop_reset:
+  topic: /soft_estop/reset
+  type: Bool
+  button: Y
