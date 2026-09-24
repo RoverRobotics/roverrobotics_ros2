@@ -39,10 +39,6 @@ def generate_launch_description():
         PythonLaunchDescriptionSource([get_package_share_directory('roverrobotics_driver'), '/launch/accessories.launch.py']),
     )
    
-    joint_state_publisher_node = Node(
-        package='joint_state_publisher',
-        executable='joint_state_publisher'
-    )
 
     robot_state_publisher_node = Node(
         package='robot_state_publisher',
@@ -53,7 +49,6 @@ def generate_launch_description():
     ld.add_action(model_arg)
     ld.add_action(robot_driver)
     ld.add_action(accessories_launch)
-    ld.add_action(joint_state_publisher_node)
     ld.add_action(robot_state_publisher_node)
    
     return ld

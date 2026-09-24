@@ -39,6 +39,7 @@ namespace vesc {
             return (vescChannelStatus){.vescId = vescId,
                                     .current = current,
                                     .rpm = rpm,
+                                    .erpm = (float)rpm_scaled,
                                     .duty = duty,
                                     .voltage = currentVoltage_,
                                     .current_in = currentAmperage_, 
@@ -54,6 +55,7 @@ namespace vesc {
                 .vescId = 0, 
                 .current = 0, 
                 .rpm = 0, 
+                .erpm = 0,
                 .duty = 0, 
                 .voltage = 0,
                 .current_in = 0, 
@@ -68,11 +70,23 @@ namespace vesc {
                 .vescId = 0, 
                 .current = 0, 
                 .rpm = 0, 
+                .erpm = 0,
                 .duty = 0, 
                 .voltage = 0,
                 .current_in = 0, 
                 .dataValid = false};
         }
+
+        /* unhandled command id */
+        return (vescChannelStatus){
+            .vescId = 0,
+            .current = 0,
+            .rpm = 0,
+            .erpm = 0,
+            .duty = 0,
+            .voltage = 0,
+            .current_in = 0,
+            .dataValid = false};
     }
 
     std::vector<uint8_t> BridgedVescArray::buildCommandMessage(vesc::vescChannelCommand command) 

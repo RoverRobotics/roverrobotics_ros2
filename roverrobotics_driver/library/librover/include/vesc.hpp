@@ -12,6 +12,7 @@ namespace vesc
         int vescId;
         float current;
         float rpm;
+        float erpm;   /* raw electrical RPM, unscaled */
         float duty;
         float voltage;
         float current_in;

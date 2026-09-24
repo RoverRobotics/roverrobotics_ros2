@@ -14,5 +14,5 @@ def generate_launch_description():
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
             [ThisLaunchFileDir(), '/mega.launch.py'])),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
-            [ThisLaunchFileDir(), '/ps4_controller.launch.py'])),
+            [ThisLaunchFileDir(), '/ps5_controller.launch.py'])),
     ])

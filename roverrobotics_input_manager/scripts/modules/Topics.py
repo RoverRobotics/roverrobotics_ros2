@@ -13,6 +13,8 @@ class Topics:
             for key, value in mapping.items():
                 if value['type'] == 'Twist':
                     self._topics[key] = TwistTopic(node, value, overrides or {})
+                elif value['type'] == 'Bool':
+                    self._topics[key] = BoolTopic(node, value)
 
     def publish(self, controller: Controller):
         for _, topic in self._topics.items():
@@ -124,3 +126,18 @@ class TwistTopic:
                 self._ang_throttle_coef = 0
         self._last_ang_throttle_input = throttle_input
 
+
+
+class BoolTopic:
+    '''Publishes Bool(True) once per press of a controller button.'''
+    def __init__(self, node: Node, params: dict):
+        self.topic = params['topic']
+        self.button = params['button']
+        self._last = 0
+        self._publisher = node.create_publisher(Bool, self.topic, 10)
+
+    def publish(self, controller: Controller):
+        state = int(bool(controller[self.button].state))
+        if state and not self._last:
+            self._publisher.publish(Bool(data=True))
+        self._last = state
