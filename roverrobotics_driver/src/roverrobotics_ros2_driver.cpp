@@ -1,3 +1,4 @@
+#include <cmath>
 #include "roverrobotics_ros2_driver.hpp"
 using namespace RoverRobotics;
 #include <iostream>
@@ -35,7 +36,14 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   wheel_radius_ = declare_parameter("wheel_radius", WHEEL_RADIUS_DEFAULT_);
   wheel_base_ = declare_parameter("wheel_base", WHEEL_BASE_DEFAULT_);
   robot_length_ = declare_parameter("robot_length", ROBOT_LENGTH_DEFAULT_);
-  // Drive
+  gear_ratio_ = declare_parameter("gear_ratio", GEAR_RATIO_DEFAULT_);
+  motor_pole_pairs_ = declare_parameter("motor_pole_pairs", MOTOR_POLE_PAIRS_DEFAULT_);
+  serial_number_ = declare_parameter("serial_number", SERIAL_NUMBER_DEFAULT_);
+  wheel_trim_fl_ = declare_parameter("wheel_trim_fl", WHEEL_TRIM_FL_DEFAULT_);
+  wheel_trim_fr_ = declare_parameter("wheel_trim_fr", WHEEL_TRIM_FR_DEFAULT_);
+  wheel_trim_rl_ = declare_parameter("wheel_trim_rl", WHEEL_TRIM_RL_DEFAULT_);
+  wheel_trim_rr_ = declare_parameter("wheel_trim_rr", WHEEL_TRIM_RR_DEFAULT_);
+
   speed_topic_ = declare_parameter("speed_topic", SPEED_TOPIC_DEFAULT_);
   estop_trigger_topic_ =
       declare_parameter("estop_trigger_topic", ESTOP_TRIGGER_TOPIC_DEFAULT_);
@@ -53,6 +61,45 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   float pi_d_ = declare_parameter("motor_control_d_gain", PID_D_DEFAULT_);
   linear_covariance = declare_parameter("linear_covariance", LIN_COVAR_DEFAULT);
   yaw_covariance = declare_parameter("yaw_covariance", YAW_COVAR_DEFAULT);
+  pose_linear_covariance =
+      declare_parameter("pose_linear_covariance", POSE_LIN_COVAR_DEFAULT);
+  pose_yaw_covariance =
+      declare_parameter("pose_yaw_covariance", POSE_YAW_COVAR_DEFAULT);
+
+  max_velocity_step_ = declare_parameter("max_velocity_step", MAX_VELOCITY_STEP_DEFAULT_);
+  cmd_vel_timeout_sec_ = declare_parameter("cmd_vel_timeout_sec", CMD_VEL_TIMEOUT_DEFAULT_);
+  last_cmd_time_ = steady_clock_.now();
+  double rest_wheel_rpm = declare_parameter("rest_wheel_rpm", REST_WHEEL_RPM_DEFAULT_);
+  if (!std::isfinite(rest_wheel_rpm) || rest_wheel_rpm <= 0.0 || rest_wheel_rpm > 30.0) {
+    RCLCPP_ERROR(get_logger(), "rest_wheel_rpm %f out of (0, 30], using %.1f",
+                 rest_wheel_rpm, REST_WHEEL_RPM_DEFAULT_);
+    rest_wheel_rpm = REST_WHEEL_RPM_DEFAULT_;
+  }
+  rest_wheel_rpm_ = static_cast<float>(rest_wheel_rpm);
+  double brake_band_duty = declare_parameter("brake_band_duty", BRAKE_BAND_DUTY_DEFAULT_);
+  double brake_band_rpm = declare_parameter("brake_band_rpm", BRAKE_BAND_RPM_DEFAULT_);
+  double rpm_per_duty = declare_parameter("rpm_per_duty", RPM_PER_DUTY_DEFAULT_);
+  if (!std::isfinite(brake_band_duty) || brake_band_duty < 0.0 || brake_band_duty > 0.5 ||
+      !std::isfinite(brake_band_rpm) || brake_band_rpm < 0.0 ||
+      !std::isfinite(rpm_per_duty) || rpm_per_duty <= 0.0 ||
+      (brake_band_duty > 0.0 &&
+       (rpm_per_duty < RPM_PER_DUTY_MIN_ || rpm_per_duty > RPM_PER_DUTY_MAX_))) {
+    RCLCPP_ERROR(get_logger(), "brake band %f/%f/%f invalid, braking band off",
+                 brake_band_duty, brake_band_rpm, rpm_per_duty);
+    brake_band_duty = BRAKE_BAND_DUTY_DEFAULT_;
+    brake_band_rpm = BRAKE_BAND_RPM_DEFAULT_;
+    rpm_per_duty = RPM_PER_DUTY_DEFAULT_;
+  }
+  brake_band_duty_ = static_cast<float>(brake_band_duty);
+  brake_band_rpm_ = static_cast<float>(brake_band_rpm);
+  rpm_per_duty_ = static_cast<float>(rpm_per_duty);
+  double release_hold_s = declare_parameter("release_hold_s", RELEASE_HOLD_S_DEFAULT_);
+  if (!std::isfinite(release_hold_s) || release_hold_s < 0.0 || release_hold_s > 1.0) {
+    RCLCPP_ERROR(get_logger(), "release_hold_s %f out of [0, 1], using %.1f",
+                 release_hold_s, RELEASE_HOLD_S_DEFAULT_);
+    release_hold_s = RELEASE_HOLD_S_DEFAULT_;
+  }
+  release_hold_s_ = static_cast<float>(release_hold_s);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -109,6 +156,15 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       [=](std_msgs::msg::Bool::ConstSharedPtr msg) {
         estop_reset_event_callback(msg);
       });
+  reset_odometry_subscriber_ = create_subscription<std_msgs::msg::Empty>(
+      "~/reset_odometry", rclcpp::QoS(1),
+      [=](std_msgs::msg::Empty::ConstSharedPtr) {
+        pos_x_ = 0.0;
+        pos_y_ = 0.0;
+        theta_ = 0.0;
+        RCLCPP_INFO(get_logger(), "Odometry pose reset to zero");
+      });
+
   robot_info__request_subscriber_ = create_subscription<std_msgs::msg::Bool>(
       estop_reset_topic_, rclcpp::QoS(2),
       [=](std_msgs::msg::Bool::ConstSharedPtr msg) {
@@ -129,6 +185,25 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
                 odometry_frequency_);
   }
   odom_tf_pub = std::make_unique<tf2_ros::TransformBroadcaster>(*this);
+  joint_state_publisher_ =
+      create_publisher<sensor_msgs::msg::JointState>("/joint_states", 10);
+  /* transient_local so a subscriber that starts later still receives it */
+  serial_number_publisher_ = create_publisher<std_msgs::msg::String>(
+      "rover_" + robot_type_ + "/serial_number",
+      rclcpp::QoS(1).transient_local());
+  {
+    std_msgs::msg::String serial_msg;
+    serial_msg.data = serial_number_;
+    serial_number_publisher_->publish(serial_msg);
+    if (serial_number_.empty()) {
+      RCLCPP_WARN(get_logger(),
+                  "serial_number is not set; publishing an empty string on "
+                  "rover_%s/serial_number. Set it in the robot config.",
+                  robot_type_.c_str());
+    } else {
+      RCLCPP_INFO(get_logger(), "Serial number: %s", serial_number_.c_str());
+    }
+  }
   odometry_publisher_ =
         create_publisher<nav_msgs::msg::Odometry>(odom_topic_, rclcpp::QoS(4));
 
@@ -220,7 +295,9 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   } else if (robot_type_ == "mini" || robot_type_ == "miti" || robot_type_ == "max" || robot_type_ == "mega") {
     try {
       robot_ = std::make_unique<DifferentialRobot>(
-          device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_);
+          device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_, gear_ratio_, motor_pole_pairs_,
+          control_mode_, rest_wheel_rpm_, brake_band_duty_, brake_band_rpm_,
+          rpm_per_duty_, release_hold_s_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
@@ -235,11 +312,44 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       return;
     }
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
+    RCLCPP_INFO(get_logger(), "Gear Ratio: %f", gear_ratio_);
+    RCLCPP_INFO(get_logger(), "Motor pole pairs: %.0f", motor_pole_pairs_);
+    RCLCPP_INFO(get_logger(), "rest_wheel_rpm %.1f control_mode %d",
+                rest_wheel_rpm_, static_cast<int>(control_mode_));
+    RCLCPP_INFO(get_logger(), "brake_band_duty %.3f brake_band_rpm %.1f rpm_per_duty %.1f release_hold_s %.2f",
+                brake_band_duty_, brake_band_rpm_, rpm_per_duty_, release_hold_s_);
+    if (brake_band_duty_ > 0.0f && control_mode_ == Control::TRACTION_CONTROL) {
+      RCLCPP_WARN(get_logger(), "brake_band_duty is ignored in TRACTION_CONTROL");
+    }
+    if (control_mode_ == Control::OPEN_LOOP) {
+      RCLCPP_WARN(get_logger(),
+                  "OPEN_LOOP is not supported on %s; using INDEPENDENT_WHEEL",
+                  robot_type_.c_str());
+    }
+    publish_joint_states_ = true;
+    if (auto diff_robot = dynamic_cast<DifferentialRobot*>(robot_.get())) {
+      diff_robot->set_wheel_trims(wheel_trim_fl_,
+                                  wheel_trim_fr_,
+                                  wheel_trim_rl_,
+                                  wheel_trim_rr_);
+      RCLCPP_INFO(get_logger(),
+                  "Wheel trims set to FL=%.3f FR=%.3f RL=%.3f RR=%.3f",
+                  wheel_trim_fl_, wheel_trim_fr_, wheel_trim_rl_, wheel_trim_rr_);
+    }
   } else {
     RCLCPP_WARN(get_logger(),
                 "Robot Type is currently not suppported. Stopping this Node");
     rclcpp::shutdown();
   }
+
+  velocity_timer_ = create_wall_timer(
+        50ms,
+        std::bind(&RobotDriver::publish_ramped_velocity, this)
+      );
+
+  watchdog_timer_ = create_wall_timer(
+    std::chrono::milliseconds(50),
+    std::bind(&RobotDriver::watchdog_tick, this));
 }
 
 void RobotDriver::publish_robot_info() {
@@ -316,13 +426,16 @@ void RobotDriver::publish_robot_status() {
 
   // Battery Status Topic
   auto battery_msg = sensor_msgs::msg::BatteryState();
+  battery_msg.header.stamp = get_clock()->now();
+  /* we only get here with a live connection, so a battery is reporting */
+  battery_msg.present = true;
   if (robot_type_ != "pro"){
     battery_msg.percentage = robot_data_.battery1_SOC;
     battery_msg.voltage = robot_data_.battery1_voltage;
     battery_msg.current = robot_data_.battery1_current;
   } else {
     battery_msg.percentage = mapValue(robot_data_.battery1_SOC, inMin, inMax, outMin, outMax);
-    battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the nu. is divided by 29.94 to get the value in the actual range 
+    battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the no. is divided by 29.94 to get the value in the actual range
     battery_msg.current = robot_data_.battery2_current;
   }
   battery_soc_publisher_->publish(battery_msg);
@@ -343,14 +456,10 @@ void RobotDriver::update_odom() {
 
   
   // odom pose stuff
-  static double pos_x = 0;
-  static double pos_y = 0;
-  static double theta = 0;
-  static double past_time = 0;
-  static double now_time = 0;
-  static double dt = 0;
-  static double mean_linear = 0;
-  static double mean_angular = 0;
+  double now_time = 0;
+  double dt = 0;
+  double mean_linear = 0;
+  double mean_angular = 0;
   tf2::Quaternion q_new;
   
   odom.header.frame_id = odom_frame_id_;
@@ -366,9 +475,11 @@ void RobotDriver::update_odom() {
   rclcpp::Time ros_now_time = get_clock()->now();
   now_time = ros_now_time.seconds();
   
-  dt = now_time - past_time;
-  past_time = now_time;
-  
+  const bool first_sample = (last_odom_time_ == 0.0);
+  dt = now_time - last_odom_time_;
+  last_odom_time_ = now_time;
+
+  /* the accumulators smooth what we publish as the current twist */
   linear_accumulator_.accumulate(robot_data_.linear_vel);
   angular_accumulator_.accumulate(robot_data_.angular_vel);
   
@@ -376,47 +487,92 @@ void RobotDriver::update_odom() {
   mean_angular = angular_accumulator_.getRollingMean();
 
   // Calculate position
-  if (past_time != 0)
+  if (!first_sample)
   {
-    pos_x = pos_x + mean_linear * cos(theta) * dt;
-    pos_y = pos_y + mean_linear * sin(theta) * dt;
-    theta = (theta + mean_angular * dt);
-    
-    q_new.setRPY(0, 0, theta);
-    tf2::convert(q_new, odom_trans.transform.rotation);
-    tf2::convert(q_new, odom.pose.pose.orientation);
+    /* integrate the instantaneous velocity, not the rolling mean: the mean
+     * lags the robot by half the window and that lag becomes position error
+     * on every acceleration and deceleration */
+    pos_x_ += robot_data_.linear_vel * cos(theta_) * dt;
+    pos_y_ += robot_data_.linear_vel * sin(theta_) * dt;
+    theta_ += robot_data_.angular_vel * dt;
+    /* keep theta in [-pi, pi] so it does not grow without bound */
+    theta_ = std::atan2(std::sin(theta_), std::cos(theta_));
   }
+
+  q_new.setRPY(0, 0, theta_);
+  tf2::convert(q_new, odom_trans.transform.rotation);
+  tf2::convert(q_new, odom.pose.pose.orientation);
   
   
-  odom_trans.transform.translation.x = pos_x;
-  odom_trans.transform.translation.y = pos_y;
+  odom_trans.transform.translation.x = pos_x_;
+  odom_trans.transform.translation.y = pos_y_;
   odom_trans.transform.translation.z = 0.0;
   //odom_trans.transform.rotation = q_new;
   
 
-  odom.pose.pose.position.x = pos_x;
-  odom.pose.pose.position.y = pos_y;
+  odom.pose.pose.position.x = pos_x_;
+  odom.pose.pose.position.y = pos_y_;
   odom.pose.pose.position.z = 0.0;
     
   odom.twist.twist.linear.x = mean_linear;
   odom.twist.twist.angular.z = mean_angular;
   
-  // Covariance: 
-  // If not moving, trust the encoders completely
-  // Otherwise set them to the ROS param
-  
-  
-  odom.twist.covariance[0] = linear_covariance;
-  odom.twist.covariance[7] = linear_covariance;
-  odom.twist.covariance[35] = yaw_covariance;
+  /* Covariance. Row-major 6x6 over (x, y, z, roll, pitch, yaw), so the
+   * diagonal is 0, 7, 14, 21, 28, 35. Pose is dead reckoned and drifts, so it
+   * must not be left at zero: a fusion node reads all-zero as "no uncertainty"
+   * and will trust wheel odometry over every other sensor. */
+  odom.pose.covariance[0] = pose_linear_covariance;   // x
+  odom.pose.covariance[7] = pose_linear_covariance;   // y
+  odom.pose.covariance[35] = pose_yaw_covariance;     // yaw
+  odom.pose.covariance[14] = UNOBSERVED_COVARIANCE;   // z
+  odom.pose.covariance[21] = UNOBSERVED_COVARIANCE;   // roll
+  odom.pose.covariance[28] = UNOBSERVED_COVARIANCE;   // pitch
+
+  odom.twist.covariance[0] = linear_covariance;       // vx
+  /* vy is structurally zero on a differential drive, so it is known, not
+   * uncertain. Giving it the forward-velocity covariance tells a fusion node
+   * the robot might be sliding sideways as fast as it drives. */
+  odom.twist.covariance[7] = 1e-9;                    // vy
+  odom.twist.covariance[35] = yaw_covariance;         // vyaw
+  odom.twist.covariance[14] = UNOBSERVED_COVARIANCE;  // vz
+  odom.twist.covariance[21] = UNOBSERVED_COVARIANCE;  // vroll
+  odom.twist.covariance[28] = UNOBSERVED_COVARIANCE;  // vpitch
   	
   
+  if (publish_joint_states_ && !first_sample) {
+    publish_joint_states(dt);
+  }
+
   // Publish odometry and odom->base_link transform
   odometry_publisher_->publish(odom);
   
   if(pub_odom_tf_){
     odom_tf_pub->sendTransform(odom_trans);
   }
+}
+
+void RobotDriver::publish_joint_states(double dt) {
+  /* VESC ids 1..4 are FL, FR, BL, BR; the URDF joints are fl/fr/rl/rr.
+   * Units follow the sensor_msgs/JointState convention for a revolute joint:
+   *   position -> radians, cumulative wheel angle since this node started
+   *   velocity -> radians/second
+   * Multiply either by wheel_radius to get metres / metres per second. */
+  const double rpm[4] = {robot_data_.motor1_rpm, robot_data_.motor2_rpm,
+                         robot_data_.motor3_rpm, robot_data_.motor4_rpm};
+
+  sensor_msgs::msg::JointState js;
+  js.header.stamp = get_clock()->now();
+  js.name = {"fl_wheel_to_chassis", "fr_wheel_to_chassis",
+             "rl_wheel_to_chassis", "rr_wheel_to_chassis"};
+  js.position.resize(4);
+  js.velocity.resize(4);
+  for (int i = 0; i < 4; i++) {
+    const double rads = rpm[i] * 2.0 * M_PI / 60.0;
+    wheel_angle_[i] += rads * dt;
+    js.position[i] = wheel_angle_[i];
+    js.velocity[i] = rads;
+  }
+  joint_state_publisher_->publish(js);
 }
 
 void RobotDriver::velocity_event_callback(
@@ -427,10 +583,31 @@ void RobotDriver::velocity_event_callback(
         "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
     rclcpp::shutdown();
   }
-  static double speeddata[3];
-  speeddata[0] = msg->linear.x;
-  speeddata[1] = msg->angular.z;
-  speeddata[2] = msg->angular.y;
+
+  if (!std::isfinite(msg->linear.x) || !std::isfinite(msg->angular.z)) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "non-finite cmd_vel ignored");
+    return;
+  }
+  last_cmd_time_ = steady_clock_.now();
+  target_linear_velocity_  = msg->linear.x;
+  last_incoming_angular_z_ = msg->angular.z;
+}
+
+void RobotDriver::publish_ramped_velocity()
+{
+  /* ramp linear down only; acceleration is left to the PID */
+  if (target_linear_velocity_ < last_linear_velocity_) {
+    last_linear_velocity_ =
+      std::max(target_linear_velocity_,
+               last_linear_velocity_ - max_velocity_step_);
+  } else {
+    last_linear_velocity_ = target_linear_velocity_;
+  }
+  double speeddata[3];
+  speeddata[0] = last_linear_velocity_;
+  speeddata[1] = last_incoming_angular_z_;
+  speeddata[2] = 0.0;  /* pass msg->angular.y here for mecanum */
+
   robot_->set_robot_velocity(speeddata);
 }
 
@@ -462,6 +639,18 @@ void RobotDriver::robot_info_request_callback(
     std_msgs::msg::Bool::ConstSharedPtr &msg) {
   if (msg->data == true) {
     publish_robot_info();
+  }
+}
+
+void RobotDriver::watchdog_tick() {
+  const double dt = (steady_clock_.now() - last_cmd_time_).seconds();
+  if (dt > cmd_vel_timeout_sec_) {
+    /* zero the targets and let publish_ramped_velocity(), the single writer,
+     * ramp down; calling set_robot_velocity() here would race the ramp timer */
+    target_linear_velocity_  = 0.0;
+    last_incoming_angular_z_ = 0.0;
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
+      "cmd_vel timeout (%.2fs > %.2fs). HALT.", dt, cmd_vel_timeout_sec_);
   }
 }
 

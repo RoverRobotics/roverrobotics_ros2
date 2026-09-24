@@ -10,6 +10,9 @@ class BaseProtocolObject;
 }
 class RoverRobotics::BaseProtocolObject {
  public:
+  /* virtual: deleted through unique_ptr<BaseProtocolObject> */
+  virtual ~BaseProtocolObject() = default;
+
   /*
    * @brief Trim Robot Velocity
    * Modify robot velocity differential (between the left side/right side) with

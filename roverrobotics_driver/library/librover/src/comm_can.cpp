@@ -20,8 +20,21 @@ namespace RoverRobotics
             std::cerr << "error in socket bind" << std::endl;
             throw(-2);
         }
+        /* bounded wait so the read loop can observe stop_ */
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 100000;  // 100 ms
+        setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, sizeof(tv));
+
         // start read thread
         Can_read_thread_ = std::thread([this, parsefunction]() { this->read_device_loop(parsefunction); });
+    }
+
+    CommCan::~CommCan()
+    {
+        stop_ = true;
+        if (Can_read_thread_.joinable()) Can_read_thread_.join();
+        close(fd);
     }
 
     void CommCan::write_to_device(std::vector<uint8_t> msg) 
@@ -45,7 +58,7 @@ namespace RoverRobotics
     {
         std::chrono::milliseconds time_last = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
         
-        while (true) 
+        while (!stop_)
         {
             int num_bytes = read(fd, &robot_frame, sizeof(robot_frame));
             std::chrono::milliseconds time_now = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch());
