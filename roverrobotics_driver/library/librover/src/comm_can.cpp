@@ -1,4 +1,6 @@
 #include "comm_can.hpp"
+#include <cerrno>
+#include <cstring>
 
 namespace RoverRobotics 
 {
@@ -10,8 +12,14 @@ namespace RoverRobotics
             // failed to create socket
             throw(-1);
         }
-        strcpy(ifr.ifr_name, device);
-        ioctl(fd, SIOCGIFINDEX, &ifr);
+        memset(&ifr, 0, sizeof(ifr));
+        strncpy(ifr.ifr_name, device, IFNAMSIZ - 1);
+        if (ioctl(fd, SIOCGIFINDEX, &ifr) < 0)
+        {
+            std::cerr << "CAN interface " << device << " not found: " << strerror(errno) << std::endl;
+            close(fd);
+            throw(-2);
+        }
         addr.can_family = AF_CAN;
         addr.can_ifindex = ifr.ifr_ifindex;
 
@@ -49,7 +57,12 @@ namespace RoverRobotics
             frame.data[1] = msg[6];
             frame.data[2] = msg[7];
             frame.data[3] = msg[8];
-            write(fd, &frame, sizeof(struct can_frame));
+            if (write(fd, &frame, sizeof(struct can_frame)) != sizeof(struct can_frame))
+            {
+                if (write_errors_++ % 100 == 0)
+                    std::cerr << "CAN write failed on " << ifr.ifr_name << ": " << strerror(errno)
+                              << " (" << write_errors_ << " so far)" << std::endl;
+            }
         }
         Can_write_mutex_.unlock();
     }

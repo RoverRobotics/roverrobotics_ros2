@@ -57,6 +57,7 @@ class RobotDriver : public rclcpp::Node {
   const std::string SPEED_TOPIC_DEFAULT_ = "/cmd_vel/managed";
   const std::string ESTOP_TRIGGER_TOPIC_DEFAULT_ = "/soft_estop/trigger";
   const std::string ESTOP_RESET_TOPIC_DEFAULT_ = "/soft_estop/reset";
+  const std::string ESTOP_STATUS_TOPIC_DEFAULT_ = "/soft_estop/status";
   const std::string TRIM_TOPIC_DEFAULT_ = "/trim_event";
   const bool ESTOP_STATE_DEFAULT_ = false;
   const std::string CONTROL_MODE_DEFAULT_ = "INDEPENDENT_WHEEL";
@@ -128,6 +129,8 @@ class RobotDriver : public rclcpp::Node {
       joint_state_publisher_;  // per-wheel position and velocity
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr
       serial_number_publisher_;  // latched, published once at startup
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr
+      estop_status_publisher_;  // latched, true while the estop is engaged
   std::unique_ptr<tf2_ros::TransformBroadcaster> odom_tf_pub; // Odom TF Broadcaster
 
   // Timepoint / Timer
@@ -139,6 +142,7 @@ class RobotDriver : public rclcpp::Node {
   std::string speed_topic_;
   std::string estop_trigger_topic_;
   std::string estop_reset_topic_;
+  std::string estop_status_topic_;
   std::string robot_status_topic_;
   float robot_status_frequency_;
   std::string robot_info_request_topic_;
@@ -239,6 +243,10 @@ class RobotDriver : public rclcpp::Node {
    * NOTHING)
    */
   void estop_reset_event_callback(std_msgs::msg::Bool::ConstSharedPtr &msg);
+  void publish_estop_status();
+  /* float/double parameter that also accepts an integer in the YAML (8 as well as 8.0) */
+  double declare_number_(const std::string &name, double default_value);
+  bool halted_ = true;
   /**
    * @brief Robot Unique Info Request Topic Event Callback
    *

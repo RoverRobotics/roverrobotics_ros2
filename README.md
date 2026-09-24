@@ -11,7 +11,7 @@
 
   
 
-- This package is exclusively built for ROS2. The ``jazzy`` branch is tested on Ubuntu 24.04 with ROS 2 Jazzy; the ``humble`` branch is tested on Ubuntu 22.04 with ROS 2 Humble.
+- This package is exclusively built for ROS2. The ``jazzy`` branch is tested on Ubuntu 24.04 with ROS 2 Jazzy (JetPack 7 on NVIDIA Jetson); the ``humble`` branch is tested on Ubuntu 22.04 with ROS 2 Humble (JetPack 6 on NVIDIA Jetson). Use the branch that matches your Jetson's JetPack version.
 
   
 
@@ -156,7 +156,7 @@ Confirm with ``ip -br link``, which should list ``rovercan``.
 | ``wheel_radius`` | Wheel radius in meters. Must match the fitted wheel, as it scales both odometry and commanded velocity. |
 | ``wheel_base`` | Distance between left and right wheel centers, in meters. |
 | ``robot_length`` | Distance between front and rear wheel centers, in meters. |
-| ``motor_pole_pairs`` | Pole pairs in the drive motor, i.e. half the pole count. A VESC reports electrical RPM, and mechanical RPM is electrical RPM divided by this. **Mini and MITI are 30-pole, so 15.0; MAX and MEGA are 20-pole, so 10.0.** Getting it wrong scales every wheel speed and all of wheel odometry by the same factor. Write it as a decimal (``15.0``), not an integer. |
+| ``motor_pole_pairs`` | Pole pairs in the drive motor, i.e. half the pole count. A VESC reports electrical RPM, and mechanical RPM is electrical RPM divided by this. **Mini and MITI are 30-pole, so 15.0; MAX and MEGA are 20-pole, so 10.0.** Getting it wrong scales every wheel speed and all of wheel odometry by the same factor. |
 | ``gear_ratio`` | Motor revolutions per wheel revolution on geared drivetrains. Applied to the RPM feedback to convert motor RPM to wheel RPM. The MEGA and MAX are geared; the Mini and MITI are direct drive and must stay at ``1.0``, which makes the conversion a no-op. Values of zero or less are rejected and treated as ``1.0``. |
 
 The MAX is supported with 13 inch (``max_130_config.yaml``, radius 0.1651) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
@@ -182,6 +182,8 @@ All four default to ``1.0``. Use them to compensate for a wheel that runs fast o
 The timeout is a safety stop for a lost or stalled publisher. Any node commanding the robot must publish continuously, not once per change of speed.
 
 The timeout is measured on a monotonic clock, so a wall-clock jump (for example NTP correcting the time shortly after boot) can neither trigger it falsely nor disable it. Velocity commands containing ``NaN`` or infinity are rejected and logged, and do not refresh the timeout. A command smaller than 0.001 in both ``linear.x`` and ``angular.z`` is treated as a stop, so a planner that publishes a tiny residual such as ``1e-9`` still brings the robot fully to rest.
+
+The timeout is logged once, as ``cmd_vel timeout ... HALT.``, when commands stop arriving after the robot has been driven; it is not repeated while the robot sits idle.
 
 ### Stopping and braking
 
@@ -260,15 +262,18 @@ Shipped gains, tuned on hardware:
 | ``odom_frame_id`` / ``odom_child_frame_id`` | Frame names in the odometry message, normally ``odom`` and ``base_link``. |
 | ``publish_tf`` | Whether the driver broadcasts the odom to base_link transform. **False on every shipped config**, because the transform is normally published by a localisation node fusing wheel odometry with other sensors. Setting it true while such a node runs gives two publishers of the same transform. |
 | ``robot_status_topic`` / ``robot_info_topic`` | Where the status and info arrays are published. |
-| ``trim_topic`` | Topic for runtime trim events, ``/trim_event``. |
+| ``trim_topic`` | Rover Pro only: runtime steering trim, ``/trim_event``. On the Mini, MITI, MAX and MEGA it is ignored (the driver logs once); use ``wheel_trim_fl`` / ``fr`` / ``rl`` / ``rr`` instead. |
 
 ### Emergency stop
 
 | Parameter | Description |
 | --- | --- |
-| ``estop_trigger_topic`` | A ``std_msgs/Bool`` of ``true`` here latches the robot stopped. |
-| ``estop_reset_topic`` | A ``std_msgs/Bool`` of ``true`` here clears it. |
-| ``estop_state`` | Initial state at startup. False on every shipped config. |
+| ``estop_trigger_topic`` | A ``std_msgs/Bool`` of ``true`` here latches the robot stopped. Default ``/soft_estop/trigger``. |
+| ``estop_reset_topic`` | A ``std_msgs/Bool`` of ``true`` here clears it. Default ``/soft_estop/reset``. |
+| ``estop_status_topic`` | Where the current estop state is published (see below). Default ``/soft_estop/status``. |
+| ``estop_state`` | State at startup. ``true`` makes the robot boot already stopped, so it cannot move until the estop is reset. ``false`` on every shipped config. |
+
+Every shipped config lists these keys explicitly with their values, so each robot's estop setup is visible in its config file.
 
 **How the emergency stop behaves.** When the trigger arrives, the next control cycle (30 ms) sends a duty of zero to every VESC, which short-circuits the motors and brakes as hard as they allow. Stick and ``cmd_vel`` input is ignored while the stop is latched. The wheel controller's accumulated duty, PIDs and braking state are cleared, so when the stop is reset the robot resumes from rest with no jump; it moves again only when a new, non-zero command arrives.
 
@@ -278,6 +283,22 @@ From the controller, press **Circle (○)** to stop and **Triangle (△)** to re
 ros2 topic pub --once /soft_estop/trigger std_msgs/msg/Bool "{data: true}"
 ros2 topic pub --once /soft_estop/reset   std_msgs/msg/Bool "{data: true}"
 ```
+
+**Checking the estop state.** The driver publishes the current state as a latched ``std_msgs/Bool`` on ``/soft_estop/status``: ``true`` while the estop is engaged, ``false`` when released. It is sent at startup and on every change, and a subscriber that joins later receives the current value immediately.
+
+```bash
+ros2 topic echo --once /soft_estop/status     # current state
+ros2 topic echo /soft_estop/status            # follow changes live
+```
+
+The driver log records the same information:
+
+```bash
+journalctl -u roverrobotics -b --no-pager --grep "Estop state is|Software Estop" | tail -1   # current state
+journalctl -u roverrobotics -f --grep "Estop state is|Software Estop"                        # live
+```
+
+``Estop state is currently active/inactive`` is the state the driver started in; ``Software Estop activated/deactivated`` marks each change. Neither the topic nor the log sees a physical e-stop or power switch.
 
 Measured on a loaded MAX 130: from 2.4 m/s the robot stops in about 0.65 s; from full speed (about 4.6 m/s) in about 1.4 s. An emergency stop at full speed returns a large amount of energy to the battery and briefly raised the bus to about 55 V in testing, so do not use it as the routine way of stopping at top speed.
 
@@ -371,11 +392,15 @@ roverrobotics_driver:
     serial_number: "MITI-2024-0042"
 ```
 
+### `/soft_estop/status` (`std_msgs/Bool`)
+
+``true`` while the software emergency stop is engaged, ``false`` when it is released. Latched (transient-local), published at startup and on every change. See *Emergency stop*.
+
 ### `/robot_info` (`std_msgs/Float32MultiArray`)
 
 Five values: robot GUID, firmware version, speed limit, fan speed and fault flag.
 
-Two caveats. It is **not published periodically** - it publishes only in response to a request, and the request subscriber is currently bound to the estop reset topic rather than to ``robot_info_request_topic``. And because the message is ``Float32MultiArray``, any value above 16,777,216 loses precision silently, so it is not a suitable place for a serial number. Use ``serial_number`` above instead.
+Two caveats. It is **not published periodically**: it publishes only when a ``std_msgs/Bool`` of ``true`` arrives on ``robot_info_request_topic`` (default ``/robot_info/request``). And because the message is ``Float32MultiArray``, any value above 16,777,216 loses precision silently, so it is not a suitable place for a serial number. Use ``serial_number`` above instead.
 
 ### `/robot_status` (`std_msgs/Float32MultiArray`)
 
@@ -392,7 +417,7 @@ Per-wheel RPM and battery state are both available on stamped topics already: us
 
 ## Troubleshooting
 
-**The robot stops responding a few seconds after the driver starts, or never responds after boot.** If ``/joy`` and ``/cmd_vel`` stop reaching the driver roughly 20 to 30 seconds after every start, while the controller stays connected, the ROS 2 middleware has stopped delivering messages between processes on the robot. On a JetPack 5 Orin Nano this was traced to Fast DDS's shared-memory transport. Switching the robot to Cyclone DDS fixes it:
+**The robot stops responding a few seconds after the driver starts, or never responds after boot.** If ``/joy`` and ``/cmd_vel`` stop reaching the driver roughly 20 to 30 seconds after every start, while the controller stays connected, the ROS 2 middleware has stopped delivering messages between processes on the robot. On an Orin Nano running JetPack 6 (L4T R36.4) this was traced to Fast DDS's shared-memory transport. Switching the robot to Cyclone DDS fixes it:
 
 ```bash
 sudo apt install ros-${ROS_DISTRO}-rmw-cyclonedds-cpp
@@ -409,6 +434,12 @@ sudo hciconfig hci0 reset
 ```
 
 A PS4 controller must reconnect itself: after pairing, press its PS button rather than connecting from the robot.
+
+**``VESC n feedback stale ... holding all motors stopped``.** The driver stops the robot when any motor controller has not reported its speed for 250 ms, because the wheel controller would otherwise keep driving that wheel on a frozen speed reading. One such line at startup, before the first status frames arrive, is normal. If it repeats, check that VESC's power and CAN wiring.
+
+**``CAN interface <name> not found``, followed by ``Error when connecting to robot``.** The ``device_port`` in the robot config does not exist. On CAN robots it should be ``rovercan``; confirm with ``ip -br link`` and see *Connection*.
+
+**The wheels keep turning for about a second after the service is stopped.** When the driver exits cleanly it sends a brake command to every motor controller, but only if systemd lets it shut down in order. The service installed by ``setup_rover.sh`` does this (``KillMode=mixed``, ``KillSignal=SIGINT``). On a robot installed before this change, re-run ``./setup_rover.sh --with-service``. A hard crash or ``kill -9`` cannot send the brake; to cover that case, set a *Timeout Brake Current* on each VESC in VESC Tool so the controllers brake rather than coast.
 
 ## Simulation with Gazebo
 Our ROS2 packages now support simulations for all robots! The ``roverrobotics_gazebo`` package implements all of the simulation launches. You can launch your simulation using the following:
@@ -614,6 +645,7 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 - **Per-wheel trims** (``wheel_trim_fl`` / ``fr`` / ``rl`` / ``rr``) to balance a wheel that runs fast or slow.
 - **Pose covariance parameters** (``pose_linear_covariance``, ``pose_yaw_covariance``) so sensor-fusion nodes weight wheel odometry correctly.
 - **Command timeout and deceleration limit** (``cmd_vel_timeout_sec``, ``max_velocity_step``). The robot stops by itself if its velocity publisher goes quiet.
+- **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Controller speed overrides.** The PS5 launch accepts ``lin_increment``, ``ang_increment``, ``max_lin_speed``, ``max_ang_speed``, ``start_lin_throttle`` and ``start_ang_throttle`` so a robot can adjust its teleop feel without editing shared files.
 
 ### Bug fixes
@@ -632,6 +664,15 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 - **Fixed ``gear_ratio`` of zero** causing division by zero; values of zero or less are now treated as 1.0.
 - **Fixed the control mode setting being ignored.** ``control_mode`` is now honoured, and ``OPEN_LOOP``, which would command full duty on the CAN robots, is refused with a warning.
 - **Fixed odometry pose lag and yaw drift.** The pose is now integrated from instantaneous wheel speed, and yaw is wrapped to [-pi, pi].
+- **Fixed the wheels running on after the driver stops.** The driver's last command was a driving command, so the motor controllers kept driving for about a second and then coasted. It now sends a brake to all four controllers on exit: on a stand at 1 m/s the wheels stopped in 0.26 s instead of 1.7 s.
+- **Fixed ``estop_state`` being ignored.** The driver logged "Estop state is currently active" but the robot still drove. The configured state is now applied at startup.
+- **Fixed a robot running on stale feedback.** If one motor controller stopped reporting, its wheel was controlled from a frozen speed reading. The driver now stops the robot when any controller is silent for 250 ms.
+- **Fixed crash loops from configuration.** A whole number such as ``8`` instead of ``8.0`` in a robot config made the driver crash and restart continuously; numeric parameters now accept both.
+- **Fixed a wrong CAN interface being reported as connected.** A ``device_port`` that does not exist is now reported as an error instead of a silent "Connected" with no motor commands sent.
+- **Fixed ``/robot_info`` requests.** Requests on ``robot_info_request_topic`` now work; previously the estop reset triggered it instead.
+- **Removed log flooding.** The command-timeout warning was printed every 2 seconds while idle (about 43,000 lines a day); it is now logged once per stop.
+- **Removed the unused trim file on CAN robots.** ``/trim_event`` and ``~/robot.config`` had no effect on the Mini, MITI, MAX and MEGA wheel control; a malformed file could crash the driver, and building its path wrote into the ``HOME`` environment string. The per-wheel ``wheel_trim_*`` parameters replace it. The Rover Pro keeps its trim.
+- **Hardened the VESC and CAN layer.** An unknown command type no longer terminates the driver, CAN write failures are reported, and the ``SET_CURRENT`` command is scaled in milliamps as the VESC expects.
 
 ### Improvements
 
@@ -645,13 +686,13 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 - **Retune custom gains.** Correcting the speed feedback changed the effective loop gain by about +11% on the Mini and MITI and +67% on the MAX and MEGA. Gains tuned against the old feedback should be retuned; the shipped gains already are.
 - **MAX 6.5 inch and 10 inch variants are no longer supported.** Their configs and URDFs were removed. The MAX is supported with 13 inch and 15 inch wheels.
 - **``device_port`` is now ``rovercan``.** Manual installs must install the udev rule described under *Connection*.
-- **Parameters must be written as decimals** (``15.0``, not ``15``) or the driver will not start.
+- **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script now sets; see *Troubleshooting*.
+- **CAN robots now refuse to drive on stale feedback.** A motor controller that stops reporting brings the robot to a stop instead of letting it drive on.
 - **Stopping from 160 to 215 rpm takes 0.1 to 0.25 s longer on the MAX** with the braking band enabled, and stops from full speed take about 2.1 to 2.9 s. This is the cost of keeping regenerative braking within what the battery accepts.
 
 ### Known issues
 
 - An emergency stop at full speed brakes as hard as the motors allow and briefly raised the bus to about 55 V in testing. It is safe to use, but it should not be the routine way to stop at top speed.
-- ``/robot_info`` is still only published on request, and its request subscriber is bound to the estop reset topic.
 - ``battery_status.current`` is not a battery current and is currently mis-decoded; see the ``battery_status`` section. The robots have no pack current sensor, so charging cannot be detected.
 - On some JetPack 5 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
@@ -667,4 +708,4 @@ A dated record of the work in this release, for reference.
 | 2026-09-21 | Brought up a Mini on an Orin Nano Super with ROS 2 Jazzy from this release; CAN communication verified. | Mini |
 | 2026-09-22 | Tuned the Mini's PID gains (P 0.0008, D 0.00006) and verified the PS5 controller over Bluetooth. Tuned the MAX 130 with a 50 to 70 lb payload across nine recorded runs (P 0.0012, D 0.00006). Identified that the remaining stop jolt was not caused by the gains. | Mini; MAX 130 |
 | 2026-09-23 | Traced the stop jolt to reverse duty sent to still-rolling wheels, and found that hard stops from high speed were tripping the battery protection. Built a simulator from recorded CAN data to evaluate fixes, rejected a first design that failed at speed, and developed the braking band. Added the controller emergency stop. | Stand tests and ground tests on the MAX 130 with payload |
-| 2026-09-24 | Traced intermittent loss of controller input to the Fast DDS shared-memory transport and moved the test robot to Cyclone DDS. Tested the emergency stop from speed. Finalised and cleaned up the driver code, applied the MAX 130 settings to the MAX 150, merged the release into the Humble and Jazzy branches, and updated this documentation. | MAX 130 |
+| 2026-09-24 | Traced intermittent loss of controller input to the Fast DDS shared-memory transport and moved the test robot to Cyclone DDS. Tested the emergency stop from speed. Finalised and cleaned up the driver code, applied the MAX 130 settings to the MAX 150, merged the release into the Humble and Jazzy branches, and updated this documentation. Verified the remaining open defects one by one on a stand and fixed them: brake on driver exit, ``estop_state`` at startup, the ``/soft_estop/status`` topic, stale-feedback stop, configuration crash loops, CAN interface errors, ``/robot_info`` requests, log flooding, the unused trim file and the VESC codec. | MAX 130 on a stand and on the ground |
