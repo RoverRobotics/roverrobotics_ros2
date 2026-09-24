@@ -48,7 +48,7 @@ roverrobotics_driver:
     odom_frame_id: "odom"
     odom_child_frame_id: "base_link" # Set this to the base frame of the robot
     publish_tf: false # publish transform from odom frame to odom child frame
-    # estop_trigger_topic:
-    # estop_reset_topic:
-    # trim_topic:
-    # estop_state:
+    estop_trigger_topic: "/soft_estop/trigger"   # Bool true = stop (PS4/PS5 Circle)
+    estop_reset_topic: "/soft_estop/reset"       # Bool true = release (PS4/PS5 Triangle)
+    estop_status_topic: "/soft_estop/status"     # latched Bool, true while stopped
+    estop_state: false                           # true = start up already stopped
