@@ -101,14 +101,14 @@ namespace vesc {
                 command.commandValue /= RPM_SCALING_FACTOR;
                 break;
             case (CURRENT):
-                command.commandValue /= CURRENT_SCALING_FACTOR;
+                command.commandValue *= CURRENT_COMMAND_SCALING_FACTOR;
                 break;
             case (DUTY):
                 command.commandValue *= DUTY_COMMAND_SCALING_FACTOR;
                 break;
             default:
                 std::cerr << "unknown command type" << std::endl;
-                exit(-1);
+                return write_buffer;
         };
 
         auto casted_command = static_cast<int32_t>(command.commandValue);
