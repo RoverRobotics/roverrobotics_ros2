@@ -23,9 +23,16 @@ PersistentParams::read_params_from_file_() {
       /* split the line into 1 key and 1 value*/
       std::vector<std::string> key_and_value = split_(line, ":");
 
-      /* extract key and value */
+      /* extract key and value; skip lines that are not key:number */
+      if (key_and_value.size() != 2) continue;
       std::string key = key_and_value.front();
-      double value = std::stod(key_and_value.back());
+      double value;
+      try {
+        value = std::stod(key_and_value.back());
+      } catch (const std::exception &) {
+        std::cout << "Warning: ignoring malformed line in robot.config: " << line << std::endl;
+        continue;
+      }
 
       return_data.push_back(std::pair<std::string, double>(key, value));
     }
@@ -63,6 +70,7 @@ void PersistentParams::write_param(std::string param_name, double value){
 
   if(!file_rw_.is_open()){
     std::cout << "Failed to open persistent param file" << std::endl;
+    file_mutex.unlock();
     return;
   }
 

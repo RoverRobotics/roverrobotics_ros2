@@ -31,7 +31,8 @@ roverrobotics_driver:
     odom_frame_id: "odom"
     odom_child_frame_id: "base_link"
     publish_tf: False
-    # Optional: estop/trim topics if you use them
-    # estop_trigger_topic: "/soft_estop/trigger"
-    # estop_reset_topic:   "/soft_estop/reset"
+    estop_trigger_topic: "/soft_estop/trigger"   # Bool true = stop (PS4/PS5 Circle)
+    estop_reset_topic: "/soft_estop/reset"       # Bool true = release (PS4/PS5 Triangle)
+    estop_status_topic: "/soft_estop/status"     # latched Bool, true while stopped
+    estop_state: false                           # true = start up already stopped
     # trim_topic:          "/trim_event"

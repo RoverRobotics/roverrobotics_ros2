@@ -47,6 +47,7 @@ namespace vesc
     const float CURRENT_IN_SCALING_FACTOR = 100.0;
     const float VOLTAGE_SCALING_FACTOR = 1.0 / 10.0;
     const float DUTY_COMMAND_SCALING_FACTOR = 100000.0;
+    const float CURRENT_COMMAND_SCALING_FACTOR = 1000.0;  // SET_CURRENT is in mA
 
     const uint32_t CONTENT_MASK = 0xFFFFFF00;
     const uint32_t ID_MASK = 0x000000FF;
