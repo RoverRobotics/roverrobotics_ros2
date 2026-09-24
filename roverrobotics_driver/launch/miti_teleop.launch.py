@@ -13,6 +13,8 @@ def generate_launch_description():
         SetEnvironmentVariable('RCUTILS_LOGGING_BUFFERED_STREAM', '1'),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
             [ThisLaunchFileDir(), '/miti.launch.py'])),
+        # 1.25 x 2.5 rad/s: slower spins stick-slip and hop on the MITI
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
-            [ThisLaunchFileDir(), '/ps4_controller.launch.py'])),
+            [ThisLaunchFileDir(), '/ps5_controller.launch.py']),
+            launch_arguments={'start_ang_throttle': '1.25'}.items()),
     ])

@@ -1,4 +1,6 @@
 #include "differential_robot.hpp"
+#include <algorithm>
+#include <cmath>
 namespace RoverRobotics {
 DifferentialRobot::DifferentialRobot(const char *device,
                                      std::string new_comm,
@@ -6,8 +8,19 @@ DifferentialRobot::DifferentialRobot(const char *device,
                                      float wheel_base,
                                      float robot_length,
                                      Control::pid_gains pid,
-                                     Control::angular_scaling_params angular_scale) {
-
+                                     Control::angular_scaling_params angular_scale,
+                                     float gear_ratio,
+                                     float motor_pole_pairs,
+                                     Control::robot_motion_mode_t control_mode,
+                                     float rest_wheel_rpm,
+                                     float brake_band_duty,
+                                     float brake_band_rpm,
+                                     float rpm_per_duty,
+                                     float release_hold_s)
+    : release_hold_s_(release_hold_s > 0.0f ? release_hold_s : 0.0f),
+      gear_ratio_(gear_ratio > 0.0f ? gear_ratio : 1.0f),  /* 0 would divide to inf/NaN */
+      motor_pole_pairs_(motor_pole_pairs > 0.0f ? motor_pole_pairs : 15.0f)
+{
 
   /* create object to load/store persistent parameters (ie trim) */
   persistent_params_ = std::make_unique<Utilities::PersistentParams>(ROBOT_PARAM_PATH);
@@ -46,15 +59,22 @@ DifferentialRobot::DifferentialRobot(const char *device,
   /* register the pid gains for closed-loop modes */
   pid_ = pid;
 
+  /* OPEN_LOOP is unsafe here: the open-loop rpm slot below receives
+   * geometric_decay_, which would command full duty */
+  if (control_mode != Control::TRACTION_CONTROL) {
+    control_mode = Control::INDEPENDENT_WHEEL;
+  }
+
   /* make and initialize the motion logic object */
   skid_control_ = std::make_unique<Control::SkidRobotMotionController>(
-      Control::INDEPENDENT_WHEEL, robot_geometry_, pid_, MOTOR_MAX_, MOTOR_MIN_,
-      left_trim_, right_trim_, geometric_decay_);
+      control_mode, robot_geometry_, pid_, MOTOR_MAX_, MOTOR_MIN_,
+      left_trim_, right_trim_, geometric_decay_, rest_wheel_rpm,
+      brake_band_duty, brake_band_rpm, rpm_per_duty);
 
   /* MUST be done after skid control is constructed */
   load_persistent_params();
 
-  skid_control_->setOperatingMode(Control::INDEPENDENT_WHEEL);
+  skid_control_->setOperatingMode(control_mode);
   skid_control_->setAccelerationLimits(
           {LINEAR_JERK_LIMIT_, 30.0});
   skid_control_->setAngularScaling(angular_scaling_params_);
@@ -70,6 +90,21 @@ DifferentialRobot::DifferentialRobot(const char *device,
    * interval */
   motor_speed_update_thread_ =
       std::thread([this]() { this->motors_control_loop(30); });
+}
+
+DifferentialRobot::~DifferentialRobot() {
+  stop_threads_ = true;
+  if (write_to_robot_thread_.joinable()) write_to_robot_thread_.join();
+  if (motor_speed_update_thread_.joinable()) motor_speed_update_thread_.join();
+}
+
+void DifferentialRobot::set_wheel_trims(double fl, double fr, double rl, double rr) {
+  if (skid_control_) {
+    skid_control_->setWheelTrims(static_cast<float>(fl),
+                                  static_cast<float>(fr),
+                                  static_cast<float>(rl),
+                                  static_cast<float>(rr));
+  }
 }
 
 void DifferentialRobot::send_estop(bool estop) {
@@ -94,7 +129,7 @@ void DifferentialRobot::set_robot_velocity(double *control_array) {
   robotstatus_.cmd_linear_vel = control_array[0];
   robotstatus_.cmd_angular_vel = control_array[1];
   robotstatus_.cmd_ts = std::chrono::duration_cast<std::chrono::milliseconds>(
-      std::chrono::system_clock::now().time_since_epoch());
+      std::chrono::steady_clock::now().time_since_epoch());
   robotstatus_mutex_.unlock();
 }
 
@@ -105,22 +140,22 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
       robotstatus_mutex_.lock();
       switch (parsedMsg.vescId) {
         case (VESC_IDS::FRONT_LEFT):
-          robotstatus_.motor1_rpm = parsedMsg.rpm;
+          robotstatus_.motor1_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor1_id = parsedMsg.vescId;
           robotstatus_.motor1_current = parsedMsg.current;
           break;
         case (VESC_IDS::FRONT_RIGHT):
-          robotstatus_.motor2_rpm = parsedMsg.rpm;
+          robotstatus_.motor2_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor2_id = parsedMsg.vescId;
           robotstatus_.motor2_current = parsedMsg.current;
           break;
         case (VESC_IDS::BACK_LEFT):
-          robotstatus_.motor3_rpm = parsedMsg.rpm;
+          robotstatus_.motor3_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor3_id = parsedMsg.vescId;
           robotstatus_.motor3_current = parsedMsg.current;
           break;
         case (VESC_IDS::BACK_RIGHT):
-          robotstatus_.motor4_rpm = parsedMsg.rpm;
+          robotstatus_.motor4_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor4_id = parsedMsg.vescId;
           robotstatus_.motor4_current = parsedMsg.current;
           break;
@@ -381,7 +416,7 @@ void DifferentialRobot::register_comm_base(const char *device) {
 }
 
 void DifferentialRobot::send_command(int sleeptime) {
-  while (true) {
+  while (!stop_threads_) {
     if (comm_type_ == "SERIAL") {
       unsigned char *payloadptr;
       uint16_t crc;
@@ -451,6 +486,21 @@ void DifferentialRobot::send_command(int sleeptime) {
       robotstatus_mutex_.unlock();
 
     } else if (comm_type_ == "CAN") {
+      robotstatus_mutex_.lock();
+      const bool still = robotstatus_.linear_vel == MOTOR_NEUTRAL_ &&
+                         robotstatus_.angular_vel == MOTOR_NEUTRAL_;
+      if (!still) {
+        moving_ts_ = std::chrono::steady_clock::now();
+        moving_rpm_ = std::max({std::abs(robotstatus_.motor1_rpm), std::abs(robotstatus_.motor2_rpm),
+                                std::abs(robotstatus_.motor3_rpm), std::abs(robotstatus_.motor4_rpm)});
+      }
+      robotstatus_mutex_.unlock();
+      /* VESC reads 0 below ~16 rpm while still rolling; a jump to 0 from speed is a feedback fault */
+      const bool released =
+          still && (moving_rpm_ >= RELEASE_HOLD_MAX_RPM_ ||
+                    std::chrono::duration<float>(std::chrono::steady_clock::now() - moving_ts_).count() >=
+                        release_hold_s_);
+
       /* loop over the motors */
       for (uint8_t vid = VESC_IDS::FRONT_LEFT; vid <= VESC_IDS::BACK_RIGHT;
           vid++) {
@@ -460,9 +510,7 @@ void DifferentialRobot::send_command(int sleeptime) {
 
         /* only use current control when robot is stopped to prevent wasted energy
         */
-        bool useCurrentControl = motors_speeds_[vid] == MOTOR_NEUTRAL_ &&
-                                robotstatus_.linear_vel == MOTOR_NEUTRAL_ &&
-                                robotstatus_.angular_vel == MOTOR_NEUTRAL_;
+        bool useCurrentControl = motors_speeds_[vid] == MOTOR_NEUTRAL_ && released;
 
         robotstatus_mutex_.unlock();
 
@@ -521,15 +569,13 @@ void DifferentialRobot::update_drivetrim(double delta) {
 
 void DifferentialRobot::motors_control_loop(int sleeptime) {
   float linear_vel_target, angular_vel_target, rpm_FL, rpm_FR, rpm_BL, rpm_BR;
-  std::chrono::milliseconds time_last =
-      std::chrono::duration_cast<std::chrono::milliseconds>(
-          std::chrono::system_clock::now().time_since_epoch());
   std::chrono::milliseconds time_from_msg;
+  bool estop;
 
-  while (true) {
+  while (!stop_threads_) {
     std::chrono::milliseconds time_now =
         std::chrono::duration_cast<std::chrono::milliseconds>(
-            std::chrono::system_clock::now().time_since_epoch());
+            std::chrono::steady_clock::now().time_since_epoch());
 
     /* collect user commands and various status */
     robotstatus_mutex_.lock();
@@ -540,10 +586,11 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
     rpm_BL = robotstatus_.motor3_rpm;
     rpm_BR = robotstatus_.motor4_rpm;
     time_from_msg = robotstatus_.cmd_ts;
+    estop = estop_;
     robotstatus_mutex_.unlock();
 
     /* compute motion targets if no estop and data is not stale */
-    if (!estop_ &&
+    if (!estop &&
         (time_now - time_from_msg).count() <= CONTROL_LOOP_TIMEOUT_MS_) {
       
       /* compute motion targets (not using duty cycle input ATM) */
@@ -576,6 +623,8 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
       /* COMMAND THE ROBOT TO STOP */
       auto wheel_speeds = skid_control_->runMotionControl(
           {0, 0}, {0, 0, 0, 0}, {rpm_FL, rpm_FR, rpm_BL, rpm_BR});
+      /* leave estop/stale with no leftover duty or latched stop state */
+      skid_control_->resetStopState();
       auto velocities = skid_control_->getMeasuredVelocities(
           {rpm_FL, rpm_FR, rpm_BL, rpm_BR});
 

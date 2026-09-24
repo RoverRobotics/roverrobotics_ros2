@@ -2,6 +2,7 @@
 #include "protocol_base.hpp" 
 #include "vesc.hpp"
 #include "utilities.hpp"
+#include <atomic>
 
 // Zero ID's
 #define LEFT_MOTOR 1
@@ -37,8 +38,21 @@ class RoverRobotics::DifferentialRobot
                      float wheel_base,
                      float robot_length,
                      Control::pid_gains pid,
-                     Control::angular_scaling_params angular_scale);
+                     Control::angular_scaling_params angular_scale,
+                     float gear_ratio,
+                     float motor_pole_pairs,
+                     Control::robot_motion_mode_t control_mode =
+                         Control::INDEPENDENT_WHEEL,
+                     float rest_wheel_rpm = 8.0f,
+                     float brake_band_duty = 0.0f,
+                     float brake_band_rpm = 0.0f,
+                     float rpm_per_duty = 330.0f,
+                     float release_hold_s = 0.0f);
 
+  /* stops and joins the worker threads */
+  ~DifferentialRobot();
+
+  void set_wheel_trims(double fl, double fr, double rl, double rr);
   /*
    * @brief Trim Robot Velocity
    * Modify robot velocity differential (between the left side/right side) with
@@ -132,7 +146,7 @@ class RoverRobotics::DifferentialRobot
   /* max: 1.0, min: 0.0  */
   const float MOTOR_MAX_ = .97;
   const float MOTOR_MIN_ = .02;
-  float geometric_decay_ = .98;
+  float geometric_decay_ = .989;
   float left_trim_ = 1;
   float right_trim_ = 1;
 
@@ -160,10 +174,19 @@ class RoverRobotics::DifferentialRobot
   /* main data structure */
   robotData robotstatus_;
 
-  double motors_speeds_[4];
+  double motors_speeds_[5];  /* indexed by VESC_IDS 1..4 */
   double trimvalue_ = 0;
   
   bool estop_;
+
+  /* keep SET_DUTY 0 this long after the wheels read still before SET_CURRENT 0; 0 = release at once */
+  float release_hold_s_ = 0.0f;
+  const float RELEASE_HOLD_MAX_RPM_ = 40.0f;
+  std::chrono::steady_clock::time_point moving_ts_;
+  float moving_rpm_ = 0.0f;
+
+  /* signals the worker loops to exit */
+  std::atomic<bool> stop_threads_{false};
 
   Control::robot_motion_mode_t robot_mode_;
   Control::pid_gains pid_;
@@ -230,4 +253,9 @@ class RoverRobotics::DifferentialRobot
                                          0x6e17, 0x7e36, 0x4e55, 0x5e74, 0x2e93, 0x3eb2, 0x0ed1, 0x1ef0};
 
   unsigned short crc16(unsigned char *buf, unsigned int len);
+
+  float gear_ratio_;
+
+  /* VESCs report electrical RPM; mechanical RPM = eRPM / pole pairs */
+  float motor_pole_pairs_;
 };
