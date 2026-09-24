@@ -1,6 +1,7 @@
 #pragma once
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <fstream>
 #include <iomanip>
@@ -197,6 +198,9 @@ class Control::PidController {
    */
   float getIntegralErrorLimit();
 
+  /* clears accumulated state, used when a wheel comes to rest */
+  void reset();
+
   /*
    * @brief run the PID loop, compute the PID control output
    * @param target is the desired value
@@ -279,7 +283,14 @@ class Control::SkidRobotMotionController {
                             float max_motor_duty = 0.95,
                             float min_motor_duty = 0.03, float left_trim = 1.0,
                             float right_trim = 1.0,
-                            float geometric_decay = 0.99);
+                            float geometric_decay = 0.99,
+                            float rest_wheel_rpm = 8.0f,
+                            float brake_band_duty = 0.0f,
+                            float brake_band_rpm = 0.0f,
+                            float rpm_per_duty = 330.0f);
+
+  /* @brief zero the duty accumulator, wheel PIDs and brake band; caller must not hold pid_mutex_ */
+  void resetStopState();
 
   /*
    * @brief set limits to robot acceleration/decceleration
@@ -378,6 +389,8 @@ class Control::SkidRobotMotionController {
    */
   float getOpenLoopMaxRpm();
 
+  void setWheelTrims(float fl, float fr, float rl, float rr);
+
   /*
    * @brief sets the curvature correction for both sides of the robot.
    * @param left_trim is a value on the range [0, 1] which scales (reduces) the
@@ -443,6 +456,33 @@ class Control::SkidRobotMotionController {
   std::unique_ptr<PidController> pid_controller_rl_;
   std::unique_ptr<PidController> pid_controller_rr_;
 
+  /* below this wheel rpm a commanded stop zeroes the duty */
+  float rest_wheel_rpm_ = 8.0f;
+  /* |cmd| below this counts as a stop, so 1e-9 from a planner still stops */
+  const float STOP_EPS_ = 1e-3f;
+  bool isStopCommand_(robot_velocities v) const {
+    return std::abs(v.linear_velocity) < STOP_EPS_ &&
+           std::abs(v.angular_velocity) < STOP_EPS_;
+  }
+
+  const float STOP_REGROW_RPM_ = 5.0f;
+  const int STOP_STALL_TICKS_ = 10;
+
+  /* braking duty floor: |rpm|/rpm_per_duty_ - band, band shrinks as 1/rpm above brake_band_rpm_ */
+  float brake_band_duty_ = 0.0f;
+  float brake_band_rpm_ = 0.0f;
+  float rpm_per_duty_ = 330.0f;
+  float brake_min_[4] = {0, 0, 0, 0};
+  int brake_stall_[4] = {0, 0, 0, 0};
+  bool brake_off_[4] = {false, false, false, false};
+  float brake_scale_[4] = {1, 1, 1, 1};
+  bool brake_collapse_[4] = {false, false, false, false};
+  const float BRAKE_ENTRY_RPM_ = 3.0f;
+  const float BRAKE_WIDEN_ = 1.25f;
+  const float BRAKE_WIDEN_MAX_ = 4.0f;
+  const float BRAKE_ESCAPE_RPM_ = 60.0f;
+  void limitBrakeDuty_(bool stop, motor_data target, motor_data rpm);
+
   pid_gains pid_gains_;
   robot_velocities measured_velocities_;
 
@@ -453,7 +493,10 @@ class Control::SkidRobotMotionController {
 
   float left_trim_value_;
   float right_trim_value_;
-
+  float trim_fl_ = 1.0f;
+  float trim_fr_ = 1.0f;
+  float trim_rl_ = 1.0f;
+  float trim_rr_ = 1.0f;
   float max_linear_acceleration_;
   float max_angular_acceleration_;
 

@@ -3,19 +3,32 @@ roverrobotics_driver:
     # Robot Parameters
     drivetrain: "differential"   # differential, mecanum
     robot_type: "max"
+    serial_number: ""            # unit serial; any text. Published latched on rover_<type>/serial_number
     comm_type: "can"
-    device_port: "can0" # "can0" for differential/mecanum | "internal" for differential/mecanum with blue-ox board
+    device_port: "rovercan" # "rovercan" for differential/mecanum | "internal" for differential/mecanum with blue-ox board
 
     # Robot Kinematics
     wheel_radius: 0.1905  # Wheel radius(meters) (0.1905 ------ 15 Inch wheels), (0.1651 -------- 13 Inch wheels), (0.08255 ----- 6.5 Inch wheels)
     wheel_base: 0.4953     # Distance between wheels side-to-side from the center of the wheel (meters)
     robot_length: 0.4445   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 5.0
+    motor_pole_pairs: 10.0     # 20-pole motor; VESC reports eRPM, mech RPM = eRPM / pole pairs
+    max_velocity_step: 0.75 # Maximum velocity step for deceleration
+    rest_wheel_rpm: 8.0        # below this wheel rpm a stopped wheel is released
+    brake_band_duty: 0.10      # 0.0 = off; max duty below the speed-holding duty while braking
+    brake_band_rpm: 160.0      # above this wheel rpm the band shrinks as 1/rpm
+    rpm_per_duty: 325.0        # wheel rpm per unit duty; keep within 320.0-335.0
+    release_hold_s: 0.0        # SET_DUTY 0 hold after the wheels read 0
+    cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
+    wheel_trim_fl: 1.0
+    wheel_trim_fr: 1.0
+    wheel_trim_rl: 1.0 #0.99   # example: slow wheel
+    wheel_trim_rr: 1.0 #0.9686   # example: fast new motor
 
     # PID for wheel controllers and limits
     motor_control_p_gain: 0.0012
-    motor_control_i_gain: 0.00001
-    motor_control_d_gain: 0.00013
+    motor_control_i_gain: 0.00000
+    motor_control_d_gain: 0.00006
     #linear_top_speed: 3.0 # Meters-per-second
     #angular_top_speed: 3.0 # Radians-per-second
     #angular_a_coef: 0.8
@@ -27,6 +40,8 @@ roverrobotics_driver:
     # Diagnostics and Status
     diagnostics_frequency: 0.2
     odometry_frequency: 15.0
+    pose_linear_covariance: 0.1   # x/y uncertainty of the dead-reckoned pose
+    pose_yaw_covariance: 0.5      # yaw uncertainty of the dead-reckoned pose
     # robot_status_topic: "/"
     # robot_status_frequency: 60.0
     # robot_info_request_topic:

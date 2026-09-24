@@ -18,6 +18,18 @@ class Mapper(Node):
         self._joy_subscriber = self.create_subscription(Joy, joy_topic, self._joy_callback, 10)
         controller = self.declare_parameter("controller", "NULL").value
         topics = self.declare_parameter("topics", "NULL").value
+
+        # Robot-specific overrides (passed via launch arguments, -1.0 = use YAML default)
+        # LaunchConfiguration passes strings, so convert to float
+        self._speed_overrides = {
+            'lin_increment': float(self.declare_parameter("lin_increment", -1.0).value),
+            'ang_increment': float(self.declare_parameter("ang_increment", -1.0).value),
+            'max_lin_speed': float(self.declare_parameter("max_lin_speed", -1.0).value),
+            'max_ang_speed': float(self.declare_parameter("max_ang_speed", -1.0).value),
+            'start_lin_throttle': float(self.declare_parameter("start_lin_throttle", -1.0).value),
+            'start_ang_throttle': float(self.declare_parameter("start_ang_throttle", -1.0).value),
+        }
+
         self._controller = self._configure_controller_mapping(open_yaml(controller)) if controller else None
         self._topics = self._register_topics(open_yaml(topics)) if topics else None
 
@@ -36,7 +48,7 @@ class Mapper(Node):
         return Controller(button_mappings)
 
     def _register_topics(self, topics: dict):
-        return Topics(self, topics)
+        return Topics(self, topics, self._speed_overrides)
 
     def update_topics(self):
         for topic in self._topics:

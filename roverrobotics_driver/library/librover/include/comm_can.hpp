@@ -1,5 +1,6 @@
 #pragma once
 #include "comm_base.hpp"
+#include <atomic>
 
 namespace RoverRobotics {
 class CommCan;
@@ -19,6 +20,8 @@ class RoverRobotics::CommCan : public RoverRobotics::CommBase {
    */
   CommCan(const char *device, std::function<void(std::vector<uint8_t>)>,
           std::vector<uint8_t>);
+  /* stops and joins the read thread */
+  ~CommCan();
   /*
    * @brief Write data to Can Device
    * by accepting a vector of unsigned int 32 and convert it to a byte stream
@@ -49,6 +52,7 @@ class RoverRobotics::CommCan : public RoverRobotics::CommBase {
   int Can_port_;
   const int CAN_MSG_SIZE_ = 9;
   std::atomic<bool> is_connected_;
+  std::atomic<bool> stop_{false};
   std::mutex Can_write_mutex_;
   std::thread Can_read_thread_;
   const int TIMEOUT_MS_ = 1000;  // 1 sec timeout
