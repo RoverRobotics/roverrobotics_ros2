@@ -19,10 +19,11 @@ roverrobotics_driver:
     speed_topic: "/cmd_vel"
     max_velocity_step: 0.75       # max reduction in linear velocity per 50 ms cycle
     cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
-    # estop_trigger_topic:
-    # estop_reset_topic:
+    estop_trigger_topic: "/soft_estop/trigger"   # Bool true = stop (PS4/PS5 Circle)
+    estop_reset_topic: "/soft_estop/reset"       # Bool true = release (PS4/PS5 Triangle)
+    estop_status_topic: "/soft_estop/status"     # latched Bool, true while stopped
+    estop_state: false                           # true = start up already stopped
     # trim_topic:
-    # estop_state:
     control_mode: "INDEPENDENT_WHEEL" # Closed loop : INDEPENDENT_WHEEL | Open loop : OPEN_LOOP
     # linear_top_speed:
     # angular_top_speed:

@@ -54,6 +54,7 @@ class RoverRobotics::CommCan : public RoverRobotics::CommBase {
   std::atomic<bool> is_connected_;
   std::atomic<bool> stop_{false};
   std::mutex Can_write_mutex_;
+  unsigned long write_errors_ = 0;
   std::thread Can_read_thread_;
   const int TIMEOUT_MS_ = 1000;  // 1 sec timeout
 };

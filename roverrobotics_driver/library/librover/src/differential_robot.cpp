@@ -22,9 +22,6 @@ DifferentialRobot::DifferentialRobot(const char *device,
       motor_pole_pairs_(motor_pole_pairs > 0.0f ? motor_pole_pairs : 15.0f)
 {
 
-  /* create object to load/store persistent parameters (ie trim) */
-  persistent_params_ = std::make_unique<Utilities::PersistentParams>(ROBOT_PARAM_PATH);
-
   /* set comm mode: can vs serial vs other */
   if (new_comm == "serial")
     comm_type_ = "SERIAL";
@@ -71,9 +68,6 @@ DifferentialRobot::DifferentialRobot(const char *device,
       left_trim_, right_trim_, geometric_decay_, rest_wheel_rpm,
       brake_band_duty, brake_band_rpm, rpm_per_duty);
 
-  /* MUST be done after skid control is constructed */
-  load_persistent_params();
-
   skid_control_->setOperatingMode(control_mode);
   skid_control_->setAccelerationLimits(
           {LINEAR_JERK_LIMIT_, 30.0});
@@ -96,6 +90,19 @@ DifferentialRobot::~DifferentialRobot() {
   stop_threads_ = true;
   if (write_to_robot_thread_.joinable()) write_to_robot_thread_.join();
   if (motor_speed_update_thread_.joinable()) motor_speed_update_thread_.join();
+
+  /* the VESCs hold the last duty until their own timeout, so brake explicitly on exit */
+  if (comm_type_ == "CAN" && comm_base_) {
+    for (int burst = 0; burst < 3; burst++) {
+      for (uint8_t vid = VESC_IDS::FRONT_LEFT; vid <= VESC_IDS::BACK_RIGHT; vid++) {
+        comm_base_->write_to_device(vescArray_.buildCommandMessage(
+            (vesc::vescChannelCommand){.vescId = vid,
+                                       .commandType = vesc::vescPacketFlags::DUTY,
+                                       .commandValue = static_cast<float>(MOTOR_NEUTRAL_)}));
+      }
+      std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+  }
 }
 
 void DifferentialRobot::set_wheel_trims(double fl, double fr, double rl, double rr) {
@@ -138,6 +145,8 @@ void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
     auto parsedMsg = vescArray_.parseReceivedMessage(robotmsg);
     if (parsedMsg.dataValid) {
       robotstatus_mutex_.lock();
+      if (parsedMsg.vescId >= VESC_IDS::FRONT_LEFT && parsedMsg.vescId <= VESC_IDS::BACK_RIGHT)
+        status_ts_[parsedMsg.vescId] = std::chrono::steady_clock::now();
       switch (parsedMsg.vescId) {
         case (VESC_IDS::FRONT_LEFT):
           robotstatus_.motor1_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
@@ -536,41 +545,21 @@ int DifferentialRobot::cycle_robot_mode() {
     return -1;
 }
 
-void DifferentialRobot::load_persistent_params() {
-  
-  /* trim (aka curvature correction) */
-  if(auto param = persistent_params_->read_param("trim")){
-    update_drivetrim(param.value());
-    std::cout << "Loaded trim from persistent param file: " << param.value() << std::endl;
+void DifferentialRobot::update_drivetrim(double) {
+  /* the wheel controller uses the per-wheel wheel_trim_* parameters, not a left/right trim */
+  if (!trim_warned_) {
+    std::cerr << "trim_event is not supported on this robot; set wheel_trim_fl/fr/rl/rr in the config" << std::endl;
+    trim_warned_ = true;
   }
-}
-
-void DifferentialRobot::update_drivetrim(double delta) {
-
-  if (-MAX_CURVATURE_CORRECTION_ < (trimvalue_ + delta) && (trimvalue_ + delta) < MAX_CURVATURE_CORRECTION_) {
-    trimvalue_ += delta;
-
-    /* reduce power to right wheels */
-    if (trimvalue_ >= 0) {
-      left_trim_ = 1;
-      right_trim_ = 1 - trimvalue_;
-    }
-    /* reduce power to left wheels */
-    else {
-      right_trim_ = 1;
-      left_trim_ = 1 + trimvalue_;
-    }
-    skid_control_->setTrim(left_trim_, right_trim_);
-    std::cout << "writing trim " << trimvalue_ << " to file " << std::endl;
-    persistent_params_->write_param("trim", trimvalue_);
-  }
-  
 }
 
 void DifferentialRobot::motors_control_loop(int sleeptime) {
   float linear_vel_target, angular_vel_target, rpm_FL, rpm_FR, rpm_BL, rpm_BR;
   std::chrono::milliseconds time_from_msg;
   bool estop;
+  int stale_vesc;
+  long stale_ms;
+  auto last_stale_log = std::chrono::steady_clock::time_point();
 
   while (!stop_threads_) {
     std::chrono::milliseconds time_now =
@@ -587,10 +576,29 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
     rpm_BR = robotstatus_.motor4_rpm;
     time_from_msg = robotstatus_.cmd_ts;
     estop = estop_;
+    stale_vesc = 0;
+    stale_ms = 0;
+    if (comm_type_ == "CAN") {
+      auto now = std::chrono::steady_clock::now();
+      for (int vid = VESC_IDS::FRONT_LEFT; vid <= VESC_IDS::BACK_RIGHT; vid++) {
+        long age = std::chrono::duration_cast<std::chrono::milliseconds>(now - status_ts_[vid]).count();
+        if (age > STATUS_STALE_MS_ && age > stale_ms) {
+          stale_vesc = vid;
+          stale_ms = age;
+        }
+      }
+    }
     robotstatus_mutex_.unlock();
 
-    /* compute motion targets if no estop and data is not stale */
-    if (!estop &&
+    if (stale_vesc && std::chrono::steady_clock::now() - last_stale_log > std::chrono::seconds(2)) {
+      std::cerr << "VESC " << stale_vesc << " feedback stale ("
+                << (stale_ms > 100000 ? std::string("none received") : std::to_string(stale_ms) + " ms")
+                << "): holding all motors stopped" << std::endl;
+      last_stale_log = std::chrono::steady_clock::now();
+    }
+
+    /* compute motion targets if no estop, all feedback is fresh and commands are not stale */
+    if (!estop && !stale_vesc &&
         (time_now - time_from_msg).count() <= CONTROL_LOOP_TIMEOUT_MS_) {
       
       /* compute motion targets (not using duty cycle input ATM) */
