@@ -23,7 +23,7 @@ def generate_launch_description():
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
             [ThisLaunchFileDir(), '/pro.launch.py'])),
         IncludeLaunchDescription(PythonLaunchDescriptionSource(
-            [ThisLaunchFileDir(), '/ps4_controller.launch.py']),
+            [ThisLaunchFileDir(), '/ps5_controller.launch.py']),
             launch_arguments={
                 'lin_increment': str(joy_params.get('lin_increment', -1.0)),
                 'ang_increment': str(joy_params.get('ang_increment', -1.0)),
