@@ -10,6 +10,21 @@ rplidar:
     scan_mode: "Standard"
     scan_frequency: 10.0
 
+# SICK multiScan136 (3D lidar) Settings
+# Needs sick_scan_xd (https://github.com/SICKAG/sick_scan_xd, built with -DROS_VERSION=2).
+# Every key except "active" overrides the <arg>/<param> of the same name in sick_scan_xd's
+# launch/sick_multiscan.launch (see that file for all options).
+multiscan:
+  ros__parameters:
+    active: false
+    hostname: "192.168.0.1"               # IP address of the multiScan
+    udp_receiver_ip: ""                   # IP address of this computer on the multiScan's network (required)
+    custom_pointclouds: "cloud_unstructured_fullframe"   # publish only the full 360 deg cloud
+    cloud_unstructured_fullframe: "coordinateNotation=0 updateMethod=0 echos=0,1,2 layers=1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16 reflectors=0,1 infringed=0,1 rangeFilter=0.05,999,1 topic=/sick/points frameid=sick_link publish=1"
+    laserscan_layer_filter: "0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0"   # no LaserScan messages
+    imu_enable: false                     # use the robot's own IMU
+    tf_publish_rate: 0.0                  # do not publish the driver's own map -> world transform
+
 # BNO055 IMU Settings
 bno055:
   ros__parameters:

@@ -10,6 +10,8 @@ from launch.actions import LogInfo
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from math import pi
+import tempfile
+import xml.etree.ElementTree as ET
 import yaml
 
 def generate_launch_description():
@@ -35,6 +37,36 @@ def generate_launch_description():
         # Add RPLidar S2 to launch description
         ld.add_action(lidar_node)
     
+    # SICK multiScan136 (3D lidar) Setup
+    multiscan_config = accessories_config.get('multiscan', {}).get('ros__parameters', {})
+    if multiscan_config.get('active', False):
+        # sick_generic_caller reads its own launch file; overrides given as name:=value arguments
+        # arrive as strings and are ignored for bool/double parameters, so write a copy of the
+        # launch file with the values from accessories.yaml instead.
+        sick_launch = ET.parse(os.path.join(
+            get_package_share_directory('sick_scan_xd'), 'launch', 'sick_multiscan.launch'))
+        for key, value in multiscan_config.items():
+            if key == 'active':
+                continue
+            value = str(value)
+            for element in sick_launch.iter():
+                if element.tag == 'arg' and element.get('name') == key:
+                    element.set('default', value)
+                elif element.tag == 'param' and element.get('name') == key:
+                    element.set('value', value)
+        multiscan_launch_path = os.path.join(
+            tempfile.mkdtemp(prefix='multiscan_'), 'sick_multiscan.launch')
+        sick_launch.write(multiscan_launch_path)
+
+        multiscan_node = Node(
+            package='sick_scan_xd',
+            executable='sick_generic_caller',
+            arguments=[multiscan_launch_path],
+            output='screen')
+
+        # Add SICK multiScan136 to launch description
+        ld.add_action(multiscan_node)
+
     # BNO055 IMU Setup
     if accessories_config.get('bno055', {}).get('ros__parameters', {}).get('active', False):
         bno055_node = Node(
