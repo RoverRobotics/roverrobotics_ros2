@@ -1,0 +1,74 @@
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="sick_multiscan136">
+
+    <link name="sick_link">
+        <visual>
+            <origin xyz="0 0 -0.03" rpy="0 0 -1.5708"/>
+            <geometry><mesh filename="file://$(find roverrobotics_description)/meshes/sick_multiscan136_body.stl" scale="1 1 1"/></geometry>
+            <material name="sick_body"><color rgba="0.12 0.13 0.15 1.0"/></material>
+        </visual>
+        <visual>
+            <origin xyz="0 0 -0.03" rpy="0 0 -1.5708"/>
+            <geometry><mesh filename="file://$(find roverrobotics_description)/meshes/sick_multiscan136_rings.stl" scale="1 1 1"/></geometry>
+            <material name="sick_blue_rings"><color rgba="0.0 0.45 0.95 1.0"/></material>
+        </visual>
+
+        <collision>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.065" length="0.12"/>
+            </geometry>
+        </collision>
+    </link>
+
+    <joint name="sick_to_payload" type="fixed">
+        <parent link="payload_link"/>
+        <child link="sick_link"/>
+        <!-- Mounted at the rear of the payload and raised high enough that the
+             sensor body clears the forward 2D-lidar scan plane (z=0.155). -->
+        <origin xyz="-0.05 0 0.30" rpy="0 0 0"/>
+    </joint>
+
+    <gazebo reference="sick_link">
+        <sensor name='sick_multiscan136' type='gpu_lidar'>
+            <!-- Measure from sick_link itself: points are published in sick_link,
+                 so any offset here would shift the whole simulated cloud. -->
+            <pose>0 0 0 0 0 0</pose>
+            <!-- gz_lidar publishes LaserScan on '<topic>' and PointCloud2 on
+                 '<topic>/points'. We only bridge the PointCloud2 (the
+                 16-layer 3D output), which lands at ROS '/sick/points'. -->
+            <topic>sick</topic>
+            <gz_frame_id>sick_link</gz_frame_id>
+            <update_rate>20</update_rate>
+            <lidar>
+                <scan>
+                    <horizontal>
+                        <samples>720</samples>
+                        <resolution>1</resolution>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
+                    </horizontal>
+                    <vertical>
+                        <samples>16</samples>
+                        <resolution>1</resolution>
+                        <min_angle>-0.3927</min_angle>
+                        <max_angle>0.7418</max_angle>
+                    </vertical>
+                </scan>
+                <range>
+                    <min>0.05</min>
+                    <max>30.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+            </lidar>
+            <always_on>1</always_on>
+            <visualize>true</visualize>
+        </sensor>
+    </gazebo>
+
+    <!-- NOTE: the gz Sensors system plugin is not declared here. It must exist
+         exactly once per model (declaring it twice causes plugin errors in
+         Gazebo); rplidar_s2.urdf declares it, and a model without the RPLidar
+         has to add it. -->
+
+
+</robot>
