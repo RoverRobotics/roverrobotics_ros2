@@ -25,6 +25,11 @@ roverrobotics_driver:
     estop_state: false                           # true = start up already stopped
     # trim_topic:
     control_mode: "INDEPENDENT_WHEEL" # Closed loop : INDEPENDENT_WHEEL | Open loop : OPEN_LOOP
+    # Battery Calibration (4S Li-ion: 16.8V max, 14V nominal, 13.6V min)
+    battery_cells: 4
+    battery_voltage_multiplier: 1.0    # Adjust if VESC voltage reading is off
+    battery_max_cell_voltage: 4.2      # Fully charged cell voltage
+    battery_min_cell_voltage: 3.4      # Empty cell voltage
     # linear_top_speed:
     # angular_top_speed:
     odom_topic: "/odometry/wheels"

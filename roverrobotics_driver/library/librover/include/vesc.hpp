@@ -17,6 +17,8 @@ namespace vesc
         float voltage;
         float current_in;
         bool dataValid;
+        int32_t tachometer = 0;   /* status 5 tachometer, 6 steps per electrical rev */
+        bool tachValid = false;
     } vescChannelStatus;
 
     enum vescPacketFlags : uint32_t 
@@ -44,7 +46,7 @@ namespace vesc
     const float RPM_SCALING_FACTOR = 60.0 / 1000.0;
     const float DUTY_SCALING_FACTOR = 1.0 / 10.0;
     const float CURRENT_SCALING_FACTOR = 1.0 / 10.0;
-    const float CURRENT_IN_SCALING_FACTOR = 100.0;
+    const float CURRENT_IN_SCALING_FACTOR = 1.0 / 100.0;
     const float VOLTAGE_SCALING_FACTOR = 1.0 / 10.0;
     const float DUTY_COMMAND_SCALING_FACTOR = 100000.0;
     const float CURRENT_COMMAND_SCALING_FACTOR = 1000.0;  // SET_CURRENT is in mA

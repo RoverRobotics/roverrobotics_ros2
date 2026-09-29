@@ -403,6 +403,10 @@ void SkidRobotMotionController::resetStopState() {
     brake_min_[i] = std::numeric_limits<float>::max();
     brake_stall_[i] = 0;
   }
+  ff_prev_ = {0, 0, 0, 0};
+  ff_vel_ = {0, 0};
+  for (int i = 0; i < 4; i++) launch_armed_[i] = false;
+  speed_filter_primed_ = false;
 }
 
 void SkidRobotMotionController::limitBrakeDuty_(bool stop, motor_data target,
@@ -526,6 +530,66 @@ void SkidRobotMotionController::setMotorMinDuty(float min_motor_duty) {
   min_motor_duty_ = min_motor_duty;
 }
 float SkidRobotMotionController::getMotorMinDuty() { return min_motor_duty_; }
+
+void SkidRobotMotionController::setFeedforward(float rpm_per_duty,
+                                               float static_duty,
+                                               float turn_duty) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  ff_rpm_per_duty_ = rpm_per_duty;
+  ff_static_duty_ = static_duty;
+  ff_turn_duty_ = turn_duty;
+}
+
+void SkidRobotMotionController::setFeedforwardVoltage(float calibration_voltage) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  ff_cal_voltage_ = calibration_voltage;
+}
+
+void SkidRobotMotionController::setBusVoltage(float volts) { bus_voltage_ = volts; }
+
+void SkidRobotMotionController::setLowSpeedTrust(float rpm) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  low_speed_trust_rpm_ = rpm;
+}
+
+void SkidRobotMotionController::setSpeedFilter(float filter) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  speed_filter_ = filter;
+  speed_filter_primed_ = false;
+}
+
+motor_data SkidRobotMotionController::feedforward_(motor_data targets,
+                                                   float angular_velocity,
+                                                   motor_data measured) {
+  motor_data ff = {0, 0, 0, 0};
+  if (ff_rpm_per_duty_ <= 0.0f) return ff;
+  /* turn boost acts on each side's turning share only, so it helps a pivot but adds no forward push in an arc */
+  const float left = 0.5f * (targets.fl + targets.rl);
+  const float right = 0.5f * (targets.fr + targets.rr);
+  const float linear = 0.5f * (left + right);
+  const float turn_rpm = 0.5f * (right - left);
+  const float pivot_share =
+      std::abs(turn_rpm) / (std::abs(linear) + std::abs(turn_rpm) + 1e-3f);
+  const float boost = ff_turn_duty_ * pivot_share *
+      std::min(std::abs(angular_velocity) / FF_TURN_FULL_RADPS_, 1.0f);
+  float *out[4] = {&ff.fl, &ff.fr, &ff.rl, &ff.rr};
+  const float tg[4] = {targets.fl, targets.fr, targets.rl, targets.rr};
+  const float side[4] = {-turn_rpm, turn_rpm, -turn_rpm, turn_rpm};
+  const float w[4] = {measured.fl, measured.fr, measured.rl, measured.rr};
+  /* the same duty gives proportionally more speed at a higher bus voltage */
+  float vscale = 1.0f;
+  const float vbus = bus_voltage_;
+  if (ff_cal_voltage_ > 0.0f && vbus > 20.0f && vbus < 60.0f)
+    vscale = std::clamp(ff_cal_voltage_ / vbus, FF_VSCALE_MIN_, FF_VSCALE_MAX_);
+  for (int i = 0; i < 4; i++) {
+    if (std::abs(tg[i]) < FF_MIN_TARGET_RPM_) continue;
+    /* the boost is a breakaway assist: full while the wheel is stuck, gone once it reaches its target */
+    const float fade = std::clamp(1.0f - std::abs(w[i]) / std::abs(tg[i]), 0.0f, 1.0f);
+    *out[i] = vscale * (std::copysign(ff_static_duty_ + std::abs(tg[i]) / ff_rpm_per_duty_, tg[i]) +
+                        std::copysign(boost * fade, side[i]));
+  }
+  return ff;
+}
 
 void SkidRobotMotionController::setOutputDecay(float geometric_decay) {
   geometric_decay_ = geometric_decay;
@@ -757,21 +821,81 @@ motor_data SkidRobotMotionController::runMotionControl(
 
       break;
 
-    case INDEPENDENT_WHEEL:
-      motor_duties_add =
-          computeMotorCommandsQuad_(target_wheel_speeds, current_wheel_speeds);
-
-      /* add the change to the duty cycles */
-      duty_cycles_.fl += motor_duties_add.fl;
-      duty_cycles_.fr += motor_duties_add.fr;
-      duty_cycles_.rr += motor_duties_add.rr;
-      duty_cycles_.rl += motor_duties_add.rl;
-
-      /* add a geometric decay to the duty cycles */
-      duty_cycles_.fl *= geometric_decay_;
-      duty_cycles_.fr *= geometric_decay_;
-      duty_cycles_.rr *= geometric_decay_;
-      duty_cycles_.rl *= geometric_decay_;
+    case INDEPENDENT_WHEEL: {
+      motor_data feedback = current_wheel_speeds;
+      if (speed_filter_ > 0.0f) {
+        if (!speed_filter_primed_) {
+          speed_filtered_ = current_wheel_speeds;
+          speed_filter_primed_ = true;
+        }
+        const float f = speed_filter_;
+        speed_filtered_.fl = f * speed_filtered_.fl + (1.0f - f) * current_wheel_speeds.fl;
+        speed_filtered_.fr = f * speed_filtered_.fr + (1.0f - f) * current_wheel_speeds.fr;
+        speed_filtered_.rl = f * speed_filtered_.rl + (1.0f - f) * current_wheel_speeds.rl;
+        speed_filtered_.rr = f * speed_filtered_.rr + (1.0f - f) * current_wheel_speeds.rr;
+        feedback = speed_filtered_;
+      }
+      /* the accumulator holds only the PID correction; feedforward is re-added fresh each cycle.
+         feedforward follows the requested command, never the measured-anchored limiter output */
+      const float ff_dt = std::min(delta_time, 0.1f);
+      ff_vel_.linear_velocity += std::clamp(
+          velocity_targets.linear_velocity - ff_vel_.linear_velocity,
+          -max_linear_acceleration_ * ff_dt, max_linear_acceleration_ * ff_dt);
+      ff_vel_.angular_velocity += std::clamp(
+          velocity_targets.angular_velocity - ff_vel_.angular_velocity,
+          -max_angular_acceleration_ * ff_dt, max_angular_acceleration_ * ff_dt);
+      motor_data ff_targets =
+          computeSkidSteerWheelSpeeds(ff_vel_, robot_geometry_);
+      ff_targets.fl *= trim_fl_;
+      ff_targets.fr *= trim_fr_;
+      ff_targets.rl *= trim_rl_;
+      ff_targets.rr *= trim_rr_;
+      motor_data ff = feedforward_(ff_targets, ff_vel_.angular_velocity,
+                                   current_wheel_speeds);
+      motor_duties_add = computeMotorCommandsQuad_(target_wheel_speeds, feedback);
+      /* while the feedforward is still ramping it carries the move alone; the PID only corrects at steady command */
+      const bool ff_ramping =
+          ff_rpm_per_duty_ > 0.0f &&
+          (std::abs(velocity_targets.linear_velocity - ff_vel_.linear_velocity) > 1e-4f ||
+           std::abs(velocity_targets.angular_velocity - ff_vel_.angular_velocity) > 1e-4f);
+      if (ff_ramping) motor_duties_add = {0, 0, 0, 0};
+      /* and it stays out per wheel until that wheel has actually caught up with the new target */
+      if (ff_rpm_per_duty_ > 0.0f) {
+        const float tg[4] = {ff_targets.fl, ff_targets.fr, ff_targets.rl, ff_targets.rr};
+        const float w[4] = {current_wheel_speeds.fl, current_wheel_speeds.fr,
+                            current_wheel_speeds.rl, current_wheel_speeds.rr};
+        float *add[4] = {&motor_duties_add.fl, &motor_duties_add.fr, &motor_duties_add.rl,
+                         &motor_duties_add.rr};
+        for (int i = 0; i < 4; i++) {
+          /* arm on any real target change: a small step can finish ramping within one cycle */
+          const bool stepped = std::abs(tg[i] - launch_prev_tg_[i]) > LAUNCH_TARGET_STEP_RPM_;
+          launch_prev_tg_[i] = tg[i];
+          if ((ff_ramping || stepped) && !launch_armed_[i]) {
+            launch_armed_[i] = true;
+            launch_t_[i] = 0.0f;
+          }
+          const bool low = std::abs(tg[i]) >= FF_MIN_TARGET_RPM_ &&
+                           std::abs(tg[i]) < low_speed_trust_rpm_;
+          if (!launch_armed_[i]) {
+            if (low) *add[i] *= LOW_SPEED_PID_SCALE_;
+            continue;
+          }
+          const float progress =
+              std::abs(tg[i]) < FF_MIN_TARGET_RPM_ ? 1.0f : w[i] / tg[i];
+          if ((!low && progress >= LAUNCH_PROGRESS_) || launch_t_[i] > LAUNCH_MAX_S_) {
+            launch_armed_[i] = false;
+            if (low) *add[i] *= LOW_SPEED_PID_SCALE_;
+            continue;
+          }
+          *add[i] = 0.0f;
+          launch_t_[i] += ff_dt;
+        }
+      }
+      duty_cycles_.fl = (duty_cycles_.fl - ff_prev_.fl + motor_duties_add.fl) * geometric_decay_ + ff.fl;
+      duty_cycles_.fr = (duty_cycles_.fr - ff_prev_.fr + motor_duties_add.fr) * geometric_decay_ + ff.fr;
+      duty_cycles_.rr = (duty_cycles_.rr - ff_prev_.rr + motor_duties_add.rr) * geometric_decay_ + ff.rr;
+      duty_cycles_.rl = (duty_cycles_.rl - ff_prev_.rl + motor_duties_add.rl) * geometric_decay_ + ff.rl;
+      ff_prev_ = ff;
 
       /* clamp the state, not just the output, so it cannot wind up */
       duty_cycles_.fl = std::clamp(duty_cycles_.fl, -max_motor_duty_, max_motor_duty_);
@@ -788,6 +912,16 @@ motor_data SkidRobotMotionController::runMotionControl(
         raw_targets.rr *= trim_rr_;
         limitBrakeDuty_(isStopCommand_(velocity_targets), raw_targets,
                         current_wheel_speeds);
+      }
+
+      /* with feedforward, leftover correction must never drive a rolling wheel backwards on a stop */
+      if (ff_rpm_per_duty_ > 0.0f && isStopCommand_(velocity_targets)) {
+        float *d[4] = {&duty_cycles_.fl, &duty_cycles_.fr, &duty_cycles_.rl,
+                       &duty_cycles_.rr};
+        const float w[4] = {current_wheel_speeds.fl, current_wheel_speeds.fr,
+                            current_wheel_speeds.rl, current_wheel_speeds.rr};
+        for (int i = 0; i < 4; i++)
+          if (std::abs(w[i]) >= rest_wheel_rpm_ && *d[i] * w[i] < 0.0f) *d[i] = 0.0f;
       }
 
       /* on a commanded stop, release each nearly still wheel so leftover duty can't rock it */
@@ -815,7 +949,20 @@ motor_data SkidRobotMotionController::runMotionControl(
       /* don't allow duties higher or lower than the limits */
       modified_duties = clipDutyCycles_(duty_cycles_);
 
+      /* with feedforward, the min-duty cut (a VESC brake) applies only to wheels that should be stopped */
+      if (ff_rpm_per_duty_ > 0.0f) {
+        const float *ffw[4] = {&ff_prev_.fl, &ff_prev_.fr, &ff_prev_.rl, &ff_prev_.rr};
+        const float *raw[4] = {&duty_cycles_.fl, &duty_cycles_.fr, &duty_cycles_.rl,
+                               &duty_cycles_.rr};
+        float *out[4] = {&modified_duties.fl, &modified_duties.fr, &modified_duties.rl,
+                         &modified_duties.rr};
+        for (int i = 0; i < 4; i++)
+          if (*ffw[i] != 0.0f && *out[i] == 0.0f)
+            *out[i] = std::clamp(*raw[i], -max_motor_duty_, max_motor_duty_);
+      }
+
       break;
+    }
 
     case TRACTION_CONTROL:
       /* determine how much change is needed to the duty cycles */
