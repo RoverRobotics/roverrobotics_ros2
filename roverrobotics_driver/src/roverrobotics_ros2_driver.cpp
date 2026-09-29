@@ -102,6 +102,39 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     release_hold_s = RELEASE_HOLD_S_DEFAULT_;
   }
   release_hold_s_ = static_cast<float>(release_hold_s);
+  double ff_rpm_per_duty = declare_number_("ff_rpm_per_duty", 0.0);
+  double ff_static_duty = declare_number_("ff_static_duty", 0.0);
+  double ff_turn_duty = declare_number_("ff_turn_duty", 0.0);
+  double wheel_speed_filter = declare_number_("wheel_speed_filter", 0.0);
+  if (!std::isfinite(ff_rpm_per_duty) || ff_rpm_per_duty < 0.0 ||
+      !std::isfinite(ff_static_duty) || ff_static_duty < 0.0 || ff_static_duty > 0.2 ||
+      !std::isfinite(ff_turn_duty) || ff_turn_duty < 0.0 || ff_turn_duty > 0.3) {
+    RCLCPP_ERROR(get_logger(), "feedforward %f/%f/%f invalid, feedforward off",
+                 ff_rpm_per_duty, ff_static_duty, ff_turn_duty);
+    ff_rpm_per_duty = ff_static_duty = ff_turn_duty = 0.0;
+  }
+  if (!std::isfinite(wheel_speed_filter) || wheel_speed_filter < 0.0 || wheel_speed_filter > 0.95) {
+    RCLCPP_ERROR(get_logger(), "wheel_speed_filter %f out of [0, 0.95], filter off", wheel_speed_filter);
+    wheel_speed_filter = 0.0;
+  }
+  ff_rpm_per_duty_ = static_cast<float>(ff_rpm_per_duty);
+  ff_static_duty_ = static_cast<float>(ff_static_duty);
+  ff_turn_duty_ = static_cast<float>(ff_turn_duty);
+  wheel_speed_filter_ = static_cast<float>(wheel_speed_filter);
+  use_tachometer_speed_ = declare_parameter("use_tachometer_speed", false);
+  double low_speed_trust_rpm = declare_number_("low_speed_trust_rpm", 0.0);
+  if (!std::isfinite(low_speed_trust_rpm) || low_speed_trust_rpm < 0.0 || low_speed_trust_rpm > 50.0) {
+    RCLCPP_ERROR(get_logger(), "low_speed_trust_rpm %f out of [0, 50], off", low_speed_trust_rpm);
+    low_speed_trust_rpm = 0.0;
+  }
+  low_speed_trust_rpm_ = static_cast<float>(low_speed_trust_rpm);
+  double ff_calibration_voltage = declare_number_("ff_calibration_voltage", 0.0);
+  if (!std::isfinite(ff_calibration_voltage) || ff_calibration_voltage < 0.0 ||
+      (ff_calibration_voltage > 0.0 && (ff_calibration_voltage < 20.0 || ff_calibration_voltage > 60.0))) {
+    RCLCPP_ERROR(get_logger(), "ff_calibration_voltage %f invalid (0 or 20-60), compensation off", ff_calibration_voltage);
+    ff_calibration_voltage = 0.0;
+  }
+  ff_calibration_voltage_ = static_cast<float>(ff_calibration_voltage);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -124,6 +157,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       declare_number_("angular_min_scale", ANGULAR_SCALING_MIN_DEFAULT_);
   angular_scaling_params_.max_scale_val =
       declare_number_("angular_max_scale", ANGULAR_SCALING_MAX_DEFAULT_);
+  // Battery calibration
+  battery_cells_ = declare_parameter("battery_cells", BATTERY_CELLS_DEFAULT_);
+  battery_voltage_multiplier_ = declare_parameter("battery_voltage_multiplier", BATTERY_VOLTAGE_MULTIPLIER_DEFAULT_);
+  battery_max_cell_voltage_ = declare_parameter("battery_max_cell_voltage", BATTERY_MAX_CELL_VOLTAGE_DEFAULT_);
+  battery_min_cell_voltage_ = declare_parameter("battery_min_cell_voltage", BATTERY_MIN_CELL_VOLTAGE_DEFAULT_);
   // Finished getting all parameters
   RCLCPP_INFO(get_logger(),
               "Robot type is Rover %s over %s", robot_type_.c_str(), comm_type_.c_str());
@@ -303,6 +341,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
           device_port_.c_str(), comm_type_, wheel_radius_, wheel_base_, robot_length_, pid_gains_, angular_scaling_params_, gear_ratio_, motor_pole_pairs_,
           control_mode_, rest_wheel_rpm_, brake_band_duty_, brake_band_rpm_,
           rpm_per_duty_, release_hold_s_);
+      static_cast<DifferentialRobot *>(robot_.get())->setDriveTuning(
+          ff_rpm_per_duty_, ff_static_duty_, ff_turn_duty_, wheel_speed_filter_);
+      static_cast<DifferentialRobot *>(robot_.get())->setUseTachometer(use_tachometer_speed_);
+      static_cast<DifferentialRobot *>(robot_.get())->setLowSpeedTrust(low_speed_trust_rpm_);
+      static_cast<DifferentialRobot *>(robot_.get())->setFeedforwardVoltage(ff_calibration_voltage_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
@@ -319,6 +362,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     RCLCPP_INFO(get_logger(), "Connected to robot at %s", device_port_.c_str());
     RCLCPP_INFO(get_logger(), "Gear Ratio: %f", gear_ratio_);
     RCLCPP_INFO(get_logger(), "Motor pole pairs: %.0f", motor_pole_pairs_);
+    RCLCPP_INFO(get_logger(), "feedforward rpm_per_duty %.0f static %.3f turn %.3f, wheel_speed_filter %.2f",
+                ff_rpm_per_duty_, ff_static_duty_, ff_turn_duty_, wheel_speed_filter_);
+    RCLCPP_INFO(get_logger(), "wheel speed source: %s", use_tachometer_speed_ ? "tachometer (status 5)" : "eRPM (status 1)");
+    RCLCPP_INFO(get_logger(), "low_speed_trust_rpm %.1f", low_speed_trust_rpm_);
+    RCLCPP_INFO(get_logger(), "ff_calibration_voltage %.1f V (%s)", ff_calibration_voltage_, ff_calibration_voltage_ > 0.0f ? "feedforward scaled by bus voltage" : "no voltage compensation");
     RCLCPP_INFO(get_logger(), "rest_wheel_rpm %.1f control_mode %d",
                 rest_wheel_rpm_, static_cast<int>(control_mode_));
     RCLCPP_INFO(get_logger(), "brake_band_duty %.3f brake_band_rpm %.1f rpm_per_duty %.1f release_hold_s %.2f",
@@ -439,14 +487,38 @@ void RobotDriver::publish_robot_status() {
   /* we only get here with a live connection, so a battery is reporting */
   battery_msg.present = true;
   if (robot_type_ != "pro"){
-    battery_msg.percentage = robot_data_.battery1_SOC;
-    battery_msg.voltage = robot_data_.battery1_voltage;
+    float corrected_voltage = robot_data_.battery1_voltage * battery_voltage_multiplier_;
+    float max_voltage = battery_max_cell_voltage_ * battery_cells_;
+    float min_voltage = battery_min_cell_voltage_ * battery_cells_;
+    float soc;
+    if (corrected_voltage >= max_voltage) {
+      soc = 100.0f;
+    } else if (corrected_voltage <= min_voltage) {
+      soc = 0.0f;
+    } else {
+      soc = (corrected_voltage - min_voltage) / (max_voltage - min_voltage) * 100.0f;
+    }
+    battery_msg.percentage = soc;
+    battery_msg.voltage = corrected_voltage;
     battery_msg.current = robot_data_.battery1_current;
   } else {
     battery_msg.percentage = mapValue(robot_data_.battery1_SOC, inMin, inMax, outMin, outMax);
     battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the no. is divided by 29.94 to get the value in the actual range
     battery_msg.current = robot_data_.battery2_current;
   }
+
+  // Charging detection based on current direction
+  // VESC reports negative current_in when charging, positive when discharging
+  if (battery_msg.percentage >= 100.0f) {
+    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_FULL;
+  } else if (battery_msg.current < -0.1f) {
+    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING;
+  } else if (battery_msg.current > 0.1f) {
+    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
+  } else {
+    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_NOT_CHARGING;
+  }
+
   battery_soc_publisher_->publish(battery_msg);
 }
 

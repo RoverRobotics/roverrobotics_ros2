@@ -9,10 +9,16 @@ roverrobotics_driver:
 
     # Robot Kinematics
     wheel_radius: 0.127  # Wheel radius (meters)
-    wheel_base: 0.387     # Distance between wheels side-to-side from the center of the wheel (meters)
+    wheel_base: 0.60     # effective skid-steer track (geometric 0.387), measured 2026-09-25
     robot_length: 0.286   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 1.0   # direct drive, no gearbox: leave at 1.0
     motor_pole_pairs: 15.0     # 30-pole motor; VESC reports eRPM, mech RPM = eRPM / pole pairs
+
+    # Battery (voltage-derived SOC + charging status)
+    battery_cells: 10
+    battery_voltage_multiplier: 1.025  # Correction factor for VESC voltage reading
+    battery_max_cell_voltage: 4.2      # Fully charged cell voltage
+    battery_min_cell_voltage: 3.4      # Empty cell voltage
     max_velocity_step: 0.75       # max reduction in linear velocity per 50 ms cycle
     cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
     wheel_trim_fl: 1.0
@@ -20,9 +26,16 @@ roverrobotics_driver:
     wheel_trim_rl: 1.0
     wheel_trim_rr: 1.0
     # PID for wheel controllers and limits
-    motor_control_p_gain: 0.0007
-    motor_control_i_gain: 0.00000
-    motor_control_d_gain: 0.00009
+    motor_control_p_gain: 0.0002
+    motor_control_i_gain: 0.00002
+    motor_control_d_gain: 0.00002
+    ff_rpm_per_duty: 877.0
+    ff_static_duty: 0.0072
+    ff_turn_duty: 0.06
+    ff_calibration_voltage: 39.4
+    wheel_speed_filter: 0.5
+    use_tachometer_speed: false
+    low_speed_trust_rpm: 7.0
     #linear_top_speed: 3.0 # Meters-per-second
     #angular_top_speed: 3.0 # Radians-per-second
     #angular_a_coef: 0.8
