@@ -161,6 +161,8 @@ Confirm with ``ip -br link``, which should list ``rovercan``.
 
 The MAX is supported with 13 inch (``max_130_config.yaml``, radius 0.1651) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
 
+**Effective track width on skid-steer robots.** The tyres slide sideways in a turn, so the robot rotates less than its wheel speeds imply. Setting ``wheel_base`` to the *effective* track width instead of the measured distance between wheel centers corrects both sides at once: a commanded turn rate produces that turn rate, and wheel odometry reports the rotation that actually happens. To measure it, command a pivot (for example 1.0 rad/s), record the true wheel speed and the IMU yaw rate once settled, and compute ``2 × wheel surface speed ÷ IMU yaw rate``. On a MITI (measured wheel base 0.387 m) this gave **0.60 m**: pivots went from 66% to 91% of the commanded rate and odometry yaw matched the IMU within 1% in arcs. The value depends on tyres and floor, so navigation should still fuse IMU yaw.
+
 ### Wheel trim
 
 | Parameter | Description |
@@ -213,6 +215,63 @@ These parameters shape how a CAN robot comes to rest when the commanded speed dr
 
 The band applies in ``INDEPENDENT_WHEEL`` mode only. It does not act during an emergency stop, which always brakes as hard as the motors allow.
 
+### Speed feedback at low speed
+
+On CAN robots the driver takes each wheel's speed from the VESC status message (electrical RPM). With hall-sensored motors, the VESC reports roughly **half the real speed below its *Hall Interpolation ERPM* setting** (VESC Tool, Motor Settings → FOC → Hall Sensors; default 500) and the correct speed above it. Everything built on that value is then wrong at low speed: the wheel controller holds the under-reading at target, so the robot drives too fast, and odometry under-reports distance by the same factor.
+
+Measured on a MITI (direct-drive hub motors, 15 pole pairs), true speed from the VESC tachometer ÷ reported speed:
+
+| Command | True eRPM | Interp. 500 | Interp. 150 | Interp. 50 |
+| --- | --- | --- | --- | --- |
+| 0.05 m/s | 57 | – | 2.1 | 1.2 |
+| 0.1 m/s | 113 | 2.2–2.6 | 2.1 | 1.03–1.09 |
+| 0.2 m/s | 228 | 1.5–2.3 | 1.00 | 1.00 |
+| 0.4 m/s | 452 | 1.01–1.11 | 0.99 | 1.00 |
+| 0.8 m/s | 905 | 0.99 | 0.99 | 0.99 |
+
+**Fix: set *Hall Interpolation ERPM* to 50 on every VESC** and write the configuration. On the MITI this brought odometry within 0.5% of a tape measurement at 0.2 m/s (it was 32% short before). Below about 100 eRPM (≈0.07 m/s on a MITI) the reported speed is still unreliable because too few hall edges arrive. The setting lives in the VESCs, not in this repository, so it must be applied to each robot. Direct-drive robots are the most affected; geared robots spin their motors faster at the same ground speed, but a MAX with hall sensors at the default setting is still affected below about 0.18 m/s.
+
+``use_tachometer_speed`` (default ``false``) is a fallback that computes each wheel's speed from the VESC tachometer (CAN status 5) instead. It is correct at every speed but updates more slowly at low speed, so it is best left off once the VESC setting above is applied. It requires status 5 to be enabled on every VESC; a wheel whose tachometer goes quiet falls back to the status value.
+
+**Where to see the tachometer.** No topic carries the tachometer on its own. With ``use_tachometer_speed: true`` the tachometer speed *replaces* the wheel speed everywhere the driver publishes it: ``/joint_states`` ``velocity``, ``/robot_status`` indices 1, 6, 11 and 16, and the wheel odometry. With it ``false`` (the default) the driver still decodes the tachometer but publishes nothing from it. To compare the two sources directly, read the CAN bus:
+
+```bash
+candump -ta rovercan,1B00:1FF00   # status 5 frames, ID 0x1B0N for VESC N
+```
+
+Bytes 0-3 are the tachometer, a signed 32-bit count that grows by 6 per electrical revolution (on a MITI, 6 × 15 = 90 counts per wheel revolution); bytes 4-5 are the bus voltage × 10. Wheel rpm = change in count ÷ 6 ÷ seconds × 60 ÷ ``motor_pole_pairs`` ÷ ``gear_ratio``. VESC Tool shows the same counter as *Tachometer* in its realtime data. Status 5 must be enabled on each VESC (VESC Tool, App Settings → General → CAN Status Message Rate).
+
+### Feedforward and launch control
+
+Feedforward gives each wheel the duty its target speed needs straight away, from a calibrated model of the motor, so the PID only has to correct the small remainder. The result is faster response without overshoot and a quieter drive at low gains. It applies to ``INDEPENDENT_WHEEL`` mode, is opt-in per robot, and is enabled on the MITI. Every parameter defaults to off; with ``ff_rpm_per_duty`` at 0 the controller behaves exactly as without it.
+
+| Parameter | Description |
+| --- | --- |
+| ``ff_rpm_per_duty`` | Enables feedforward. Each wheel is given ``ff_static_duty + abs(target rpm) / ff_rpm_per_duty`` immediately, and the PID only corrects the remainder. Measured under load on the ground, not on a stand. |
+| ``ff_static_duty`` | Duty needed just to keep the wheels rolling (friction). |
+| ``ff_turn_duty`` | Extra duty that helps a pivot break the tyres free. It acts only on the turning part of a command, so it adds no forward push in an arc, and fades out as each wheel reaches its target. |
+| ``ff_calibration_voltage`` | Battery voltage at which the feedforward was calibrated (0 = off). The feedforward is scaled by ``calibration voltage ÷ battery voltage`` (limited to 0.7–1.4), so the same duty-per-speed holds as the battery drains or on a fuller pack. Uses the voltage the VESCs report. |
+| ``low_speed_trust_rpm`` | Below this wheel speed the speed feedback is treated as unreliable: after a command change the PID stays out for the full launch window and then runs at 25% strength. Around 100 eRPM expressed in wheel rpm (7.0 on a MITI). |
+| ``wheel_speed_filter`` | Smoothing of the speed the PID sees (0 = off, 0.5 = moderate). Does not affect odometry. |
+
+With feedforward on, the controller also: ramps the feedforward toward the command at the acceleration limits; keeps the PID out after each command change until that wheel reaches 85% of its target (at most 0.6 s), which removes the launch overshoot; never drives a rolling wheel backwards on a stop; and only cuts small duties to zero (a VESC brake) for wheels meant to be stopped, which removes the stop-go jerk when crawling. Emergency stop, stale feedback and the command timeout bypass all of it. Odometry and ``/joint_states`` are never affected by these parameters.
+
+**Calibration.** On the ground, drive steady speeds in both directions (for example ±0.1, 0.2, 0.4 and 0.6 m/s), record the settled duty and true wheel rpm from the VESC status frames, and fit ``duty = static + rpm / rpm_per_duty``. The values depend on the robot model, its tyres and the floor; set ``ff_calibration_voltage`` to the battery voltage during calibration. After calibrating, retune the gains lower (see *Motor control gains*). The complete MITI settings, calibrated at 39.4 V:
+
+```yaml
+    wheel_base: 0.60              # effective track width, see Kinematics
+    motor_control_p_gain: 0.0002
+    motor_control_i_gain: 0.00002
+    motor_control_d_gain: 0.00002
+    ff_rpm_per_duty: 877.0
+    ff_static_duty: 0.0072
+    ff_turn_duty: 0.06
+    ff_calibration_voltage: 39.4
+    wheel_speed_filter: 0.5
+    low_speed_trust_rpm: 7.0
+    use_tachometer_speed: false
+```
+
 ### Diagnostics
 
 | Parameter | Description |
@@ -221,22 +280,37 @@ The band applies in ``INDEPENDENT_WHEEL`` mode only. It does not act during an e
 | ``linear_covariance`` / ``yaw_covariance`` | Uncertainty published on the odometry **twist**, i.e. the measured velocity. |
 | ``pose_linear_covariance`` / ``pose_yaw_covariance`` | Uncertainty published on the odometry **pose**. The pose is dead reckoned from wheel rotation, so it drifts and these must not be zero. A fusion node reads an all-zero covariance as "no uncertainty" and will trust wheel odometry over every other sensor. |
 | ``robot_status_frequency`` | Publish rate for the robot status topic, in Hz. |
+
+### Battery
+
+| Parameter | Description |
+| --- | --- |
+| ``battery_cells`` | Cells in series in the battery pack: 10 on the Mini, MITI, MAX and MEGA (36 V nominal, 42 V full), 4 on the Zero. |
+| ``battery_max_cell_voltage`` | Cell voltage reported as 100%. Default ``4.2``. |
+| ``battery_min_cell_voltage`` | Cell voltage reported as 0%. Default ``3.4``: 34 V on the standard 10-cell (36 V nominal) pack, which leaves a small reserve above the battery protection cut-off. |
+| ``battery_voltage_multiplier`` | Correction for the voltage the motor controller reports, measured against a meter. ``1.025`` on the MITI, ``1.0`` elsewhere. |
+
+The percentage these produce is described under ``battery_status``.
+
+### Motor control gains
+
+| Parameter | Description |
+| --- | --- |
 | ``motor_control_p_gain`` | On the CAN robots the controller output is **added** to the previous duty every cycle, so this gain behaves as the integral term: it sets how quickly duty ramps toward the target and how small the steady-state speed error is. |
-| ``motor_control_i_gain`` | Leave at zero on the CAN robots. Because the output is accumulated, any value here acts as a double integrator. The remaining speed error (about 2% on the MITI) comes from a fixed 0.989 per-cycle decay on the accumulated duty. |
+| ``motor_control_i_gain`` | Because the output is accumulated, this acts as a double integrator. Keep it at zero unless feedforward is enabled; with feedforward the MITI uses a small value to remove the last steady-state error. Larger values cause overshoot. |
 | ``motor_control_d_gain`` | On the CAN robots this behaves as the proportional term, and provides the damping. Too low and the wheels overshoot and ring after a speed change; too high and turning in place goes unstable. |
 
-Retune the gains if you change ``motor_pole_pairs``, ``gear_ratio``, wheel size or motors. The controller's feedback is the measured wheel speed, so anything that changes that number changes the effective loop gain.
+Retune the gains if you change ``motor_pole_pairs``, ``gear_ratio``, wheel size, motors or the VESC *Hall Interpolation ERPM*. The controller's feedback is the measured wheel speed, so anything that changes that number changes the effective loop gain.
 
 Shipped gains, tuned on hardware:
 
 | Robot | ``p_gain`` | ``i_gain`` | ``d_gain`` | Notes |
 | --- | --- | --- | --- | --- |
 | Mini | 0.0008 | 0.0 | 0.00006 | Tuned on a Mini, Orin Nano, ROS 2 Jazzy |
-| MITI | 0.0007 | 0.0 | 0.00009 | |
+| MITI | 0.0002 | 0.00002 | 0.00002 | With feedforward. Requires *Hall Interpolation ERPM* 50 on every VESC; see *Speed feedback at low speed* |
 | MAX 130 | 0.0012 | 0.0 | 0.00006 | Tuned with a 50 to 70 lb payload |
 | MAX 150 | 0.0012 | 0.0 | 0.00006 | Same drivetrain as the MAX 130; verify on the first unit |
 | MEGA | 0.0012 | 0.0 | 0.000005 | |
-
 
 ### Control mode
 
@@ -363,6 +437,7 @@ The teleop ceiling comes from the controller config, not the driver. In ``ps4_co
 | ``current`` | amps | **not a battery current; do not use.** See the note below |
 | ``percentage`` | **percent, 0 to 100** | estimated from voltage; see the notes below |
 | ``present`` | bool | true whenever the driver has a live connection to the robot |
+| ``power_supply_status`` | enum | derived from the sign of ``current``; see the note below |
 
 ``header.stamp`` is set from the node clock on every publish.
 
@@ -370,9 +445,11 @@ The teleop ceiling comes from the controller config, not the driver. In ``ps4_co
 
 **``current`` does not measure the battery.** The robots have no pack current sensor. The value is the input current reported by one motor controller (the VESC with CAN ID 1, the only one that sends its input-current status), so it covers one of four motors and excludes the other three, the computer and accessories. It cannot detect charging: the only negative input current a VESC sees is its own motor regenerating while braking. In addition, the driver currently decodes this field incorrectly (as unsigned, with the wrong scale), so the published number is not meaningful. Until that is fixed, ignore ``current``.
 
-**``percentage`` is an estimate from voltage,** mapped linearly from 34 V (0%) to 42 V (100%) with no load compensation. It drops while the motors draw current and rises again at rest, so read it with the robot idle.
+**``percentage`` is an estimate from voltage,** mapped linearly from ``battery_min_cell_voltage`` to ``battery_max_cell_voltage`` times ``battery_cells`` after applying ``battery_voltage_multiplier`` (see *Battery*); on a 10-cell pack that is 34 V (0%) to 42 V (100%). There is no load compensation: it drops while the motors draw current and rises again at rest, so read it with the robot idle.
 
-Fields the VESCs do not report are left at their defaults: ``temperature``, ``charge``, ``capacity``, ``design_capacity``, ``power_supply_status``, ``power_supply_health``, ``power_supply_technology``, ``location``, ``cell_voltage`` and ``cell_temperature``.
+**``power_supply_status``** is FULL at 100%, CHARGING when ``current`` is below -0.1 A, DISCHARGING above 0.1 A and NOT_CHARGING otherwise. Because ``current`` is decoded without its sign (see *Known issues*), it does not report CHARGING today.
+
+Fields the VESCs do not report are left at their defaults: ``temperature``, ``charge``, ``capacity``, ``design_capacity``, ``power_supply_health``, ``power_supply_technology``, ``location``, ``cell_voltage`` and ``cell_temperature``.
 
 ### `rover_<robot_type>/serial_number` (`std_msgs/String`)
 
@@ -623,30 +700,45 @@ We also recommend these ROS2 tutorial playlists from [Articulated Robotics](http
 
 ## Release Notes — September 2026
 
-This release is a reliability and driving-quality update for every CAN robot (Mini, MITI, MAX and MEGA). It makes wheel speed and odometry correct, fixes a runaway-wheel defect, makes stops smooth and battery-safe, adds a controller emergency stop, and brings the Humble and Jazzy branches to the same driver code. Every change listed here was tested on hardware before release.
+This release is a reliability and driving-quality update for every CAN robot (Mini, MITI, MAX and MEGA). It makes wheel speed and odometry correct, fixes a runaway-wheel defect, makes stops smooth and battery-safe, adds a controller emergency stop and battery calibration, and brings the Humble and Jazzy branches to the same driver code. The MITI also gains accurate low-speed driving with feedforward wheel control. Every change listed here was tested on hardware before release.
 
 ### Highlights
 
-- **Smooth, battery-safe stopping.** A new braking band removes the jolt at the end of a stop and keeps regenerative braking within what the battery accepts, including from full speed.
 - **Correct speed and odometry on every robot.** Wheel speed was under-reported by 10% on the Mini and MITI and by 40% on the MAX and MEGA. It is now exact, and odometry measures true distance.
+- **Accurate, smooth low-speed driving on the MITI.** Low-speed wheel speed is now read correctly, and feedforward wheel control gives launches without overshoot, faster pivots and the quietest drive of all settings tested. See *MITI drive update* below.
+- **Smooth, battery-safe stopping.** A new braking band removes the jolt at the end of a stop and keeps regenerative braking within what the battery accepts, including from full speed.
 - **Emergency stop on the controller.** Circle stops the robot; Triangle resets it. Works on PS4 and PS5 controllers.
 - **Retuned motor control.** New PID gains for the Mini, MITI and MAX, tuned on hardware with the corrected speed feedback.
-- **One driver for Humble and Jazzy.** Both branches now carry identical driver code and configs.
+- **Battery percentage from a calibrated voltage,** configurable per pack, with 0% set above the battery protection cut-off.
+- **One driver for Humble and Jazzy.** Both branches carry identical driver code and configs.
+
+### MITI drive update
+
+These changes are opt-in per robot. They are enabled on the MITI, and can be enabled on other robots after the same calibration.
+
+- **Low-speed speed reading.** Below their *Hall Interpolation ERPM* setting (default 500) the VESCs reported about half the real wheel speed, so the MITI drove up to 2.2 times too fast at low speed and odometry came up 32% short. With the setting at 50, odometry is within 0.5% of a tape measure at 0.2 m/s. See *Speed feedback at low speed*.
+- **Feedforward wheel control** with battery-voltage compensation, a turn assist, a launch hold and low-speed handling. On the ground it held steady speed to about 1% of the command and launched with at most 2% overshoot. See *Feedforward and launch control*.
+- **Turn rates that match the command.** ``wheel_base`` is now the effective track width, 0.60 m, so pivots and arcs reach about 90% of the commanded rate (66% before) and wheel odometry yaw matches the IMU. See *Kinematics*.
+- **Required on every MITI:** set *Hall Interpolation ERPM* to 50 and enable CAN status 5 on each VESC in VESC Tool, then write the configuration. The new MITI gains are tuned for this setting.
 
 ### What's new
 
 - **Braking band** (``brake_band_duty``, ``brake_band_rpm``, ``rpm_per_duty``). Bounds how hard the wheel controller may brake a rolling wheel. Enabled on the MAX 130 and MAX 150; off by default elsewhere. See *Stopping and braking*.
+- **Feedforward** (``ff_rpm_per_duty``, ``ff_static_duty``, ``ff_turn_duty``, ``ff_calibration_voltage``, ``low_speed_trust_rpm``) and **speed smoothing for the PID** (``wheel_speed_filter``). Enabled on the MITI. See *Feedforward and launch control*.
+- **Tachometer speed source** (``use_tachometer_speed``), an optional fallback that reads wheel speed from the VESC tachometer (CAN status 5).
+- **Battery calibration** (``battery_cells``, ``battery_max_cell_voltage``, ``battery_min_cell_voltage``, ``battery_voltage_multiplier``) and ``power_supply_status`` on ``battery_status``. See *Battery*.
 - **Configurable rest release** (``rest_wheel_rpm``). The speed below which a stopped wheel is released, previously fixed in code.
 - **Optional release hold** (``release_hold_s``). Keeps the motors braked briefly after the wheels read zero; off by default.
 - **Controller emergency stop.** ``topics.yaml`` maps Circle to ``/soft_estop/trigger`` and Triangle to ``/soft_estop/reset``. The input manager gained a button-to-``std_msgs/Bool`` topic type to support it.
+- **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Per-wheel joint states.** ``/joint_states`` now publishes each wheel's angle and true angular velocity.
 - **Odometry reset.** Publish to ``/roverrobotics_driver/reset_odometry`` to zero the pose without restarting the driver.
 - **Unit serial number.** A new ``serial_number`` parameter is published once, latched, on ``rover_<robot_type>/serial_number``.
 - **Per-wheel trims** (``wheel_trim_fl`` / ``fr`` / ``rl`` / ``rr``) to balance a wheel that runs fast or slow.
 - **Pose covariance parameters** (``pose_linear_covariance``, ``pose_yaw_covariance``) so sensor-fusion nodes weight wheel odometry correctly.
 - **Command timeout and deceleration limit** (``cmd_vel_timeout_sec``, ``max_velocity_step``). The robot stops by itself if its velocity publisher goes quiet.
-- **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Controller speed overrides.** The PS5 launch accepts ``lin_increment``, ``ang_increment``, ``max_lin_speed``, ``max_ang_speed``, ``start_lin_throttle`` and ``start_ang_throttle`` so a robot can adjust its teleop feel without editing shared files.
+- **Launch supervision.** Every robot launch ends when the driver or an accessory node exits, so the service restarts the whole stack cleanly instead of respawning one node in a half-working stack.
 
 ### Bug fixes
 
@@ -684,18 +776,24 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 ### Changes to be aware of
 
 - **Retune custom gains.** Correcting the speed feedback changed the effective loop gain by about +11% on the Mini and MITI and +67% on the MAX and MEGA. Gains tuned against the old feedback should be retuned; the shipped gains already are.
+- **MITI: set *Hall Interpolation ERPM* to 50 before using the new gains.** Do not combine it with the previous MITI gains (P 0.0007, D 0.00009): on a stand they produced large current swings.
+- **MITI: ``wheel_base`` is now 0.60,** the effective track width rather than the 0.387 m between wheel centers. It depends on tyres and floor, so navigation should still fuse IMU yaw.
 - **MAX 6.5 inch and 10 inch variants are no longer supported.** Their configs and URDFs were removed. The MAX is supported with 13 inch and 15 inch wheels.
 - **``device_port`` is now ``rovercan``.** Manual installs must install the udev rule described under *Connection*.
-- **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script now sets; see *Troubleshooting*.
+- **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script sets; see *Troubleshooting*. The service also restarts the stack when a node exits: a manual ``ros2 launch`` now ends instead of respawning the driver.
 - **CAN robots now refuse to drive on stale feedback.** A motor controller that stops reporting brings the robot to a stop instead of letting it drive on.
+- **Battery percentage is now configurable per pack** (see *Battery*). With the defaults a 10-cell pack still reads 0% at 34 V and 100% at 42 V. The MITI applies a 1.025 correction to the reported voltage, measured against a meter, so it reads slightly higher than before at the same pack voltage.
+- **With the BNO055 enabled, use a ``bno055`` package with the startup-retry fix** (flynneva/bno055 pull request 85). Without it the IMU node can exit at boot before its serial port appears, and the stack restarts until the port is ready.
 - **Stopping from 160 to 215 rpm takes 0.1 to 0.25 s longer on the MAX** with the braking band enabled, and stops from full speed take about 2.1 to 2.9 s. This is the cost of keeping regenerative braking within what the battery accepts.
 
 ### Known issues
 
 - An emergency stop at full speed brakes as hard as the motors allow and briefly raised the bus to about 55 V in testing. It is safe to use, but it should not be the routine way to stop at top speed.
-- ``battery_status.current`` is not a battery current and is currently mis-decoded; see the ``battery_status`` section. The robots have no pack current sensor, so charging cannot be detected.
-- On some JetPack 5 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
+- ``battery_status.current`` is not a battery current (see the ``battery_status`` section) and is decoded without its sign, so ``power_supply_status`` never reports CHARGING.
+- On some JetPack 6 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
+- Below about 0.07 m/s on the MITI the VESC speed reading is still unreliable (too few hall edges), so a small bump can remain when starting at a crawl.
+- Feedforward is calibrated for the MITI only. Other robots use the PID alone until calibrated.
 
 ### Development timeline
 
@@ -709,3 +807,6 @@ A dated record of the work in this release, for reference.
 | 2026-09-22 | Tuned the Mini's PID gains (P 0.0008, D 0.00006) and verified the PS5 controller over Bluetooth. Tuned the MAX 130 with a 50 to 70 lb payload across nine recorded runs (P 0.0012, D 0.00006). Identified that the remaining stop jolt was not caused by the gains. | Mini; MAX 130 |
 | 2026-09-23 | Traced the stop jolt to reverse duty sent to still-rolling wheels, and found that hard stops from high speed were tripping the battery protection. Built a simulator from recorded CAN data to evaluate fixes, rejected a first design that failed at speed, and developed the braking band. Added the controller emergency stop. | Stand tests and ground tests on the MAX 130 with payload |
 | 2026-09-24 | Traced intermittent loss of controller input to the Fast DDS shared-memory transport and moved the test robot to Cyclone DDS. Tested the emergency stop from speed. Finalised and cleaned up the driver code, applied the MAX 130 settings to the MAX 150, merged the release into the Humble and Jazzy branches, and updated this documentation. Verified the remaining open defects one by one on a stand and fixed them: brake on driver exit, ``estop_state`` at startup, the ``/soft_estop/status`` topic, stale-feedback stop, configuration crash loops, CAN interface errors, ``/robot_info`` requests, log flooding, the unused trim file and the VESC codec. | MAX 130 on a stand and on the ground |
+| 2026-09-25 | Traced the MITI's low-speed speed and odometry error to the VESC *Hall Interpolation ERPM* setting, confirmed with the VESC tachometer and by counting wheel revolutions, and set it to 50. Added the tachometer speed source. Measured the effective track width (``wheel_base`` 0.60). Developed feedforward with a turn assist, launch hold and low-speed handling, fixing each defect found on the stand, and calibrated it on the ground against true wheel speed. | MITI: odometry within 0.5% of tape at 0.2 m/s; pivots 91% and arcs 90% of commanded turn rate; launches at 0.3 and 0.6 m/s without overshoot |
+| 2026-09-28 | Compared feedforward against the PID alone, with low gains and with the previous MITI gains, on a stand and in 12 ground runs with the robot reset between runs; feedforward gave the steadiest drive and the smallest launch overshoot. Added battery-voltage compensation. Confirmed steady speed at about 101% of the command in a 10 s hold. | MITI: straight-line odometry −1.0% with feedforward, −1.2% with low gains, −8.7% with the previous gains; launch peak 102% |
+| 2026-09-29 | Added battery calibration, set 0% to 3.4 V per cell, and verified the release on two MITIs, including a cold power cycle. | Two MITIs |

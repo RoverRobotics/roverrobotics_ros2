@@ -8,6 +8,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <atomic>
 #include <string>
 #include <vector>
 
@@ -358,6 +359,14 @@ class Control::SkidRobotMotionController {
    */
   void setMotorMinDuty(float max_min_duty);
 
+  /* INDEPENDENT_WHEEL only; rpm_per_duty <= 0 turns the feedforward off, filter 0 turns smoothing off */
+  void setFeedforward(float rpm_per_duty, float static_duty, float turn_duty);
+  void setSpeedFilter(float filter);
+  void setLowSpeedTrust(float rpm);
+  /* feedforward is scaled by calibration_voltage / bus voltage; 0 = no compensation */
+  void setFeedforwardVoltage(float calibration_voltage);
+  void setBusVoltage(float volts);
+
   /*
    * @brief get the min allowable motor duty cycle
    */
@@ -472,6 +481,35 @@ class Control::SkidRobotMotionController {
   float brake_band_duty_ = 0.0f;
   float brake_band_rpm_ = 0.0f;
   float rpm_per_duty_ = 330.0f;
+
+  /* feedforward duty = sign * (static + |rpm|/ff_rpm_per_duty + turn share); the PID only corrects the rest */
+  float ff_rpm_per_duty_ = 0.0f;
+  float ff_static_duty_ = 0.0f;
+  float ff_turn_duty_ = 0.0f;
+  float ff_cal_voltage_ = 0.0f;
+  std::atomic<float> bus_voltage_{0.0f};
+  const float FF_VSCALE_MIN_ = 0.7f;
+  const float FF_VSCALE_MAX_ = 1.4f;
+  const float FF_TURN_FULL_RADPS_ = 0.5f;
+  const float FF_MIN_TARGET_RPM_ = 0.5f;
+  motor_data ff_prev_ = {0, 0, 0, 0};
+  /* feedforward velocity, ramped toward the command at the acceleration limits; anchored to itself, never to measured speed */
+  robot_velocities ff_vel_ = {0, 0};
+  /* launch hold: after a command change the PID stays out until each wheel reaches LAUNCH_PROGRESS_ of its target */
+  bool launch_armed_[4] = {false, false, false, false};
+  float launch_t_[4] = {0, 0, 0, 0};
+  float launch_prev_tg_[4] = {0, 0, 0, 0};
+  const float LAUNCH_TARGET_STEP_RPM_ = 0.5f;
+  const float LAUNCH_PROGRESS_ = 0.85f;
+  const float LAUNCH_MAX_S_ = 0.6f;
+  /* below this target (wheel rpm) the speed feedback is unreliable: full launch hold, then a gentle PID */
+  float low_speed_trust_rpm_ = 0.0f;
+  const float LOW_SPEED_PID_SCALE_ = 0.25f;
+  /* PID feedback smoothing: filtered = f * filtered + (1 - f) * raw */
+  float speed_filter_ = 0.0f;
+  motor_data speed_filtered_ = {0, 0, 0, 0};
+  bool speed_filter_primed_ = false;
+  motor_data feedforward_(motor_data targets, float angular_velocity, motor_data measured);
   float brake_min_[4] = {0, 0, 0, 0};
   int brake_stall_[4] = {0, 0, 0, 0};
   bool brake_off_[4] = {false, false, false, false};

@@ -100,6 +100,11 @@ class RobotDriver : public rclcpp::Node {
   const float WHEEL_RADIUS_DEFAULT_ = 0.08255;
   const float WHEEL_BASE_DEFAULT_ = 0.28575;
   const float ROBOT_LENGTH_DEFAULT_ = 0.2159;
+  // Battery calibration defaults
+  const int BATTERY_CELLS_DEFAULT_ = 10;
+  const float BATTERY_VOLTAGE_MULTIPLIER_DEFAULT_ = 1.0;
+  const float BATTERY_MAX_CELL_VOLTAGE_DEFAULT_ = 4.2;
+  const float BATTERY_MIN_CELL_VOLTAGE_DEFAULT_ = 3.4;
   // robot protocol pointer
   std::unique_ptr<BaseProtocolObject> robot_;
   // universal robot data structure
@@ -195,6 +200,11 @@ class RobotDriver : public rclcpp::Node {
   float pose_yaw_covariance;
   double linear_top_speed_;
   double angular_top_speed_;
+  // Battery calibration
+  int battery_cells_;
+  float battery_voltage_multiplier_;
+  float battery_max_cell_voltage_;
+  float battery_min_cell_voltage_;
 
   double target_linear_velocity_  = 0.0;
   double last_linear_velocity_ = 0.0;
@@ -209,6 +219,13 @@ class RobotDriver : public rclcpp::Node {
   float brake_band_rpm_;
   float rpm_per_duty_;
   float release_hold_s_;
+  float ff_rpm_per_duty_;
+  float ff_static_duty_;
+  float ff_turn_duty_;
+  float wheel_speed_filter_;
+  bool use_tachometer_speed_;
+  float low_speed_trust_rpm_;
+  float ff_calibration_voltage_;
   rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
   rclcpp::TimerBase::SharedPtr velocity_timer_;
