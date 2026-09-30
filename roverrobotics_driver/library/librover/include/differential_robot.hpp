@@ -75,6 +75,11 @@ class RoverRobotics::DifferentialRobot
   void setUseTachometer(bool use);
   void setLowSpeedTrust(float rpm);
   void setFeedforwardVoltage(float calibration_voltage);
+  void setFeedforwardCorrectionDecay(float decay);
+  void setFeedforwardCorrectionRelease(bool enable);
+  void setLinearAccelerationUp(float accel);
+  void setAngularAccelerationUp(float accel);
+  void setBrakeMomentumCarry(bool enable);
   /*
    * @brief Request Robot Status
    * @return structure of statusData

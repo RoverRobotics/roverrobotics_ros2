@@ -135,6 +135,27 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     ff_calibration_voltage = 0.0;
   }
   ff_calibration_voltage_ = static_cast<float>(ff_calibration_voltage);
+  double ff_correction_decay = declare_number_("ff_correction_decay", 0.0);
+  if (!std::isfinite(ff_correction_decay) || ff_correction_decay < 0.0 ||
+      (ff_correction_decay > 0.0 && (ff_correction_decay < 0.9 || ff_correction_decay > 1.0))) {
+    RCLCPP_ERROR(get_logger(), "ff_correction_decay %f invalid (0 or 0.9-1.0), using the standard decay", ff_correction_decay);
+    ff_correction_decay = 0.0;
+  }
+  ff_correction_decay_ = static_cast<float>(ff_correction_decay);
+  ff_correction_release_ = declare_parameter("ff_correction_release", false);
+  double max_linear_acceleration = declare_number_("max_linear_acceleration", 0.0);
+  if (!std::isfinite(max_linear_acceleration) || max_linear_acceleration < 0.0) {
+    RCLCPP_ERROR(get_logger(), "max_linear_acceleration %f invalid, using the built-in limit", max_linear_acceleration);
+    max_linear_acceleration = 0.0;
+  }
+  max_linear_acceleration_ = static_cast<float>(max_linear_acceleration);
+  double max_angular_acceleration = declare_number_("max_angular_acceleration", 0.0);
+  if (!std::isfinite(max_angular_acceleration) || max_angular_acceleration < 0.0) {
+    RCLCPP_ERROR(get_logger(), "max_angular_acceleration %f invalid, using the built-in limit", max_angular_acceleration);
+    max_angular_acceleration = 0.0;
+  }
+  max_angular_acceleration_ = static_cast<float>(max_angular_acceleration);
+  brake_momentum_carry_ = declare_parameter("brake_momentum_carry", false);
   
   linear_accumulator_ = RollingMeanAccumulator(10);
   angular_accumulator_ = RollingMeanAccumulator(10);
@@ -346,6 +367,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       static_cast<DifferentialRobot *>(robot_.get())->setUseTachometer(use_tachometer_speed_);
       static_cast<DifferentialRobot *>(robot_.get())->setLowSpeedTrust(low_speed_trust_rpm_);
       static_cast<DifferentialRobot *>(robot_.get())->setFeedforwardVoltage(ff_calibration_voltage_);
+      static_cast<DifferentialRobot *>(robot_.get())->setFeedforwardCorrectionDecay(ff_correction_decay_);
+      static_cast<DifferentialRobot *>(robot_.get())->setFeedforwardCorrectionRelease(ff_correction_release_);
+      static_cast<DifferentialRobot *>(robot_.get())->setLinearAccelerationUp(max_linear_acceleration_);
+      static_cast<DifferentialRobot *>(robot_.get())->setAngularAccelerationUp(max_angular_acceleration_);
+      static_cast<DifferentialRobot *>(robot_.get())->setBrakeMomentumCarry(brake_momentum_carry_);
     } catch (int i) {
       RCLCPP_FATAL(get_logger(), "Error when connecting to robot.");
       if (i == SOCKET_CREATION_ERROR) {
@@ -367,6 +393,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     RCLCPP_INFO(get_logger(), "wheel speed source: %s", use_tachometer_speed_ ? "tachometer (status 5)" : "eRPM (status 1)");
     RCLCPP_INFO(get_logger(), "low_speed_trust_rpm %.1f", low_speed_trust_rpm_);
     RCLCPP_INFO(get_logger(), "ff_calibration_voltage %.1f V (%s)", ff_calibration_voltage_, ff_calibration_voltage_ > 0.0f ? "feedforward scaled by bus voltage" : "no voltage compensation");
+    RCLCPP_INFO(get_logger(), "ff_correction_decay %.3f (%s)", ff_correction_decay_, ff_correction_decay_ > 0.0f ? "custom decay of the PID correction" : "standard decay");
+    RCLCPP_INFO(get_logger(), "ff_correction_release %s", ff_correction_release_ ? "on" : "off");
+    RCLCPP_INFO(get_logger(), "max_linear_acceleration %.2f m/s^2 (%s)", max_linear_acceleration_, max_linear_acceleration_ > 0.0f ? "speeding up only" : "built-in limit");
+    RCLCPP_INFO(get_logger(), "max_angular_acceleration %.2f rad/s^2 (%s)", max_angular_acceleration_, max_angular_acceleration_ > 0.0f ? "turning up only" : "built-in limit");
+    RCLCPP_INFO(get_logger(), "brake_momentum_carry %s", brake_momentum_carry_ ? "on" : "off");
     RCLCPP_INFO(get_logger(), "rest_wheel_rpm %.1f control_mode %d",
                 rest_wheel_rpm_, static_cast<int>(control_mode_));
     RCLCPP_INFO(get_logger(), "brake_band_duty %.3f brake_band_rpm %.1f rpm_per_duty %.1f release_hold_s %.2f",

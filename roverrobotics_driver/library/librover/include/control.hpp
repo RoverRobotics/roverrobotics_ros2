@@ -366,6 +366,12 @@ class Control::SkidRobotMotionController {
   /* feedforward is scaled by calibration_voltage / bus voltage; 0 = no compensation */
   void setFeedforwardVoltage(float calibration_voltage);
   void setBusVoltage(float volts);
+  /* per-cycle decay of the PID correction when feedforward is on; 0 = use the standard output decay */
+  void setFeedforwardCorrectionDecay(float decay);
+  void setFeedforwardCorrectionRelease(bool enable);
+  void setLinearAccelerationUp(float accel);
+  void setAngularAccelerationUp(float accel);
+  void setBrakeMomentumCarry(bool enable);
 
   /*
    * @brief get the min allowable motor duty cycle
@@ -487,6 +493,17 @@ class Control::SkidRobotMotionController {
   float ff_static_duty_ = 0.0f;
   float ff_turn_duty_ = 0.0f;
   float ff_cal_voltage_ = 0.0f;
+  float ff_correction_decay_ = 0.0f;
+  /* correction release: a stale PID correction (wheel reversing, or correction pulling away from the new target) is not held by the launch hold */
+  bool ff_correction_release_ = false;
+  /* gentler limit for speeding up only; slowing down keeps max_linear_acceleration_. 0 = off */
+  float linear_accel_up_ = 0.0f;
+  float cmd_lin_ = 0.0f;  /* linear command ramped up at linear_accel_up_ */
+  float angular_accel_up_ = 0.0f;  /* same for turning; 0 = off */
+  float cmd_ang_ = 0.0f;
+  const float REVERSE_MIN_RPM_ = 1.0f;
+  const float STALE_CORR_DUTY_ = 0.005f;
+  bool reversing_[4] = {false, false, false, false};
   std::atomic<float> bus_voltage_{0.0f};
   const float FF_VSCALE_MIN_ = 0.7f;
   const float FF_VSCALE_MAX_ = 1.4f;
@@ -513,6 +530,10 @@ class Control::SkidRobotMotionController {
   float brake_min_[4] = {0, 0, 0, 0};
   int brake_stall_[4] = {0, 0, 0, 0};
   bool brake_off_[4] = {false, false, false, false};
+  /* right after a stop the wheel may still gain speed from momentum; not a hill during this window */
+  bool brake_carry_ = false;
+  const std::chrono::milliseconds BRAKE_CARRY_{200};
+  std::chrono::steady_clock::time_point brake_start_[4];
   float brake_scale_[4] = {1, 1, 1, 1};
   bool brake_collapse_[4] = {false, false, false, false};
   const float BRAKE_ENTRY_RPM_ = 3.0f;
