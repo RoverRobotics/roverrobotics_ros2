@@ -226,6 +226,11 @@ class RobotDriver : public rclcpp::Node {
   bool use_tachometer_speed_;
   float low_speed_trust_rpm_;
   float ff_calibration_voltage_;
+  float ff_correction_decay_;
+  bool ff_correction_release_;
+  float max_linear_acceleration_;
+  float max_angular_acceleration_;
+  bool brake_momentum_carry_;
   rclcpp::TimerBase::SharedPtr watchdog_timer_;
 
   rclcpp::TimerBase::SharedPtr velocity_timer_;

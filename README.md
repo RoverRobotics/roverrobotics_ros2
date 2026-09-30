@@ -159,9 +159,11 @@ Confirm with ``ip -br link``, which should list ``rovercan``.
 | ``motor_pole_pairs`` | Pole pairs in the drive motor, i.e. half the pole count. A VESC reports electrical RPM, and mechanical RPM is electrical RPM divided by this. **Mini and MITI are 30-pole, so 15.0; MAX and MEGA are 20-pole, so 10.0.** Getting it wrong scales every wheel speed and all of wheel odometry by the same factor. |
 | ``gear_ratio`` | Motor revolutions per wheel revolution on geared drivetrains. Applied to the RPM feedback to convert motor RPM to wheel RPM. The MEGA and MAX are geared; the Mini and MITI are direct drive and must stay at ``1.0``, which makes the conversion a no-op. Values of zero or less are rejected and treated as ``1.0``. |
 
-The MAX is supported with 13 inch (``max_130_config.yaml``, radius 0.1651) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
+The MAX is supported with 13 inch (``max_130_config.yaml``, nominal radius 0.1651, calibrated effective radius 0.155) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
 
-**Effective track width on skid-steer robots.** The tyres slide sideways in a turn, so the robot rotates less than its wheel speeds imply. Setting ``wheel_base`` to the *effective* track width instead of the measured distance between wheel centers corrects both sides at once: a commanded turn rate produces that turn rate, and wheel odometry reports the rotation that actually happens. To measure it, command a pivot (for example 1.0 rad/s), record the true wheel speed and the IMU yaw rate once settled, and compute ``2 × wheel surface speed ÷ IMU yaw rate``. On a MITI (measured wheel base 0.387 m) this gave **0.60 m**: pivots went from 66% to 91% of the commanded rate and odometry yaw matched the IMU within 1% in arcs. The value depends on tyres and floor, so navigation should still fuse IMU yaw.
+**Effective track width on skid-steer robots.** The tyres slide sideways in a turn, so the robot rotates less than its wheel speeds imply. Setting ``wheel_base`` to the *effective* track width instead of the measured distance between wheel centers corrects both sides at once: a commanded turn rate produces that turn rate, and wheel odometry reports the rotation that actually happens. To measure it, command a pivot (for example 1.0 rad/s), record the true wheel speed and the IMU yaw rate once settled, and compute ``2 × wheel surface speed ÷ IMU yaw rate``. On a MITI (measured wheel base 0.387 m) this gave **0.60 m**: pivots went from 66% to 91% of the commanded rate and odometry yaw matched the IMU within 1% in arcs. On a MAX 130 (measured wheel base 0.4953 m) it gave **0.90 m**: pivots went from 53% to 99% and arcs from 49% to 98% of the commanded rate. The value depends on tyres and floor, so navigation should still fuse IMU yaw.
+
+**Effective wheel radius.** A loaded tyre rolls on a slightly smaller radius than its nominal size. Drive a measured straight line, compare the tape distance with the wheel revolutions counted by the VESC tachometer, and set ``wheel_radius`` to the result. On the MAX 130 this gave 0.155 instead of the nominal 0.1651, and moved odometry from +5.8% to within 1% of the tape.
 
 ### Wheel trim
 
@@ -180,6 +182,8 @@ All four default to ``1.0``. Use them to compensate for a wheel that runs fast o
 | --- | --- |
 | ``max_velocity_step`` | Maximum reduction in linear velocity per 50 ms cycle, applied to forward motion only. Limits how sharply the robot decelerates when a command drops. **0.75 on every robot**, chosen by testing on hardware: the earlier 0.05 made the robot coast noticeably after the stick was released. On the CAN robots the motor library also caps acceleration at 5 m/s^2 relative to the measured speed, and that cap is the one in effect at any value above about 0.25, so small changes here have no effect. |
 | ``cmd_vel_timeout_sec`` | If no new message arrives on the velocity topic within this period, the velocity targets are zeroed and the robot ramps to a stop. Defaults to ``0.3``. |
+| ``max_linear_acceleration`` | Gentle start, CAN robots, opt-in (``0`` = off, the default). While the commanded forward speed is rising, the command given to the wheel controller climbs at this rate in m/s^2 instead of the built-in 5 m/s^2. Slowing down and stopping are not affected. The command is ramped, not the measured speed, so a speed dip caused by turning is corrected at the normal rate. **1.5 on the MAX 130.** |
+| ``max_angular_acceleration`` | The same for turning, in rad/s^2 (``0`` = off, built-in 30 rad/s^2). Applies while a turn builds up; easing off a turn is immediate, and reversing the turn direction goes through zero first. **4.0 on the MAX 130**, where it lowered the peak motor current at the start of a pivot from standstill from 37 A to 21 A (median). |
 
 The timeout is a safety stop for a lost or stalled publisher. Any node commanding the robot must publish continuously, not once per change of speed.
 
@@ -198,6 +202,7 @@ These parameters shape how a CAN robot comes to rest when the commanded speed dr
 | ``brake_band_rpm`` | Above this wheel speed the band narrows in proportion to 1/rpm, so braking current stays roughly constant as speed rises instead of growing with it. |
 | ``rpm_per_duty`` | Wheel rpm produced by one unit of duty with no load, i.e. the motor's back-EMF constant expressed at the wheel. The band is computed from it. With the band enabled, values outside 300 to 340 are rejected as a likely typo and the band is switched off. |
 | ``release_hold_s`` | Optional. Keeps the motors actively braked for this many seconds after the wheels read zero before releasing them, which can help hold the robot on a slope. ``0.0`` (default) releases immediately. Accepted range 0 to 1. |
+| ``brake_momentum_carry`` | Opt-in (default ``false``). The band hands a wheel back to the PID when its speed rises during braking, which is how a downhill roll is detected. A robot released in the middle of a short push keeps speeding up for about 0.1 to 0.2 s from momentum, which that rule mistook for a hill, so some stops were firm and others soft. With this on, a rise within the first 200 ms of a stop is followed rather than treated as a hill; a real downhill roll is still handed to the PID, at most 200 ms later. **On for the MAX 130.** |
 
 **Why the braking band exists.** The wheel controller accumulates duty and lowers it gradually on a stop. Without the band it overshoots through zero and briefly commands the opposite direction while the wheel is still turning, which on a VESC means plugging the motor: the robot stops with a sharp kick and can rock. At high speed the same controller can brake hard enough to push the battery's regenerative current past what its protection circuit accepts, which opens the charge path and lets the bus voltage climb far above the pack voltage. The band removes both: duty lands on zero at low speed and the motor's own short-circuit brake finishes the stop, and braking current is capped at speed.
 
@@ -205,11 +210,14 @@ These parameters shape how a CAN robot comes to rest when the commanded speed dr
 
 ```yaml
     rest_wheel_rpm: 8.0
-    brake_band_duty: 0.10
+    brake_band_duty: 0.10         # MAX 150; 0.20 on the MAX 130
     brake_band_rpm: 160.0
+    brake_momentum_carry: false   # true on the MAX 130
     rpm_per_duty: 325.0
     release_hold_s: 0.0
 ```
+
+**Choosing ``brake_band_duty``.** The band sets how firmly the robot stops. On an unloaded MAX 130, 0.10 gave about 1.1 m/s^2 (1.8 s from 2.2 m/s) and 0.20 gave about 2.4 m/s^2 (0.9 s from 2.2 m/s). With 0.20 and ``brake_momentum_carry`` on, all 35 pad stops in a recorded drive stayed on the band with a peak motor current of 15 to 31 A, and the bus voltage stayed within 1.7 V of the pack voltage.
 
 **Calibrating ``rpm_per_duty``.** Put the robot on a stand with the wheels clear of the ground, drive it at three or four steady speeds (for example 1, 2, 3 and 3.8 m/s) and read the wheel rpm and duty from the VESC status frames. Divide rpm by duty at each speed and use the value measured at the higher speeds. On the MAX 130 this measured 322 to 329, so 325 is used. Stay within 320 to 335 unless you have measured otherwise: higher values brake harder and can trip the battery protection, lower values brake more softly and can let the robot roll further downhill.
 
@@ -243,7 +251,7 @@ Bytes 0-3 are the tachometer, a signed 32-bit count that grows by 6 per electric
 
 ### Feedforward and launch control
 
-Feedforward gives each wheel the duty its target speed needs straight away, from a calibrated model of the motor, so the PID only has to correct the small remainder. The result is faster response without overshoot and a quieter drive at low gains. It applies to ``INDEPENDENT_WHEEL`` mode, is opt-in per robot, and is enabled on the MITI. Every parameter defaults to off; with ``ff_rpm_per_duty`` at 0 the controller behaves exactly as without it.
+Feedforward gives each wheel the duty its target speed needs straight away, from a calibrated model of the motor, so the PID only has to correct the small remainder. The result is faster response without overshoot and a quieter drive at low gains. It applies to ``INDEPENDENT_WHEEL`` mode, is opt-in per robot, and is enabled on the MITI and the MAX 130. Every parameter defaults to off; with ``ff_rpm_per_duty`` at 0 the controller behaves exactly as without it.
 
 | Parameter | Description |
 | --- | --- |
@@ -253,6 +261,8 @@ Feedforward gives each wheel the duty its target speed needs straight away, from
 | ``ff_calibration_voltage`` | Battery voltage at which the feedforward was calibrated (0 = off). The feedforward is scaled by ``calibration voltage ÷ battery voltage`` (limited to 0.7–1.4), so the same duty-per-speed holds as the battery drains or on a fuller pack. Uses the voltage the VESCs report. |
 | ``low_speed_trust_rpm`` | Below this wheel speed the speed feedback is treated as unreliable: after a command change the PID stays out for the full launch window and then runs at 25% strength. Around 100 eRPM expressed in wheel rpm (7.0 on a MITI). |
 | ``wheel_speed_filter`` | Smoothing of the speed the PID sees (0 = off, 0.5 = moderate). Does not affect odometry. |
+| ``ff_correction_decay`` | Per-cycle decay applied to the PID's correction on top of the feedforward (``0`` = the standard output decay of 0.989; ``1.0`` = no decay; otherwise 0.9 to 1.0). With the standard decay the correction leaks away, which leaves a steady speed error; on the MAX 130 the inner wheels of an arc ran 11 to 17% fast. ``1.0`` removed that error and halved the current at the start of an arc (34.7 A to 18.9 A). |
+| ``ff_correction_release`` | Opt-in (default ``false``). The launch hold keeps the PID out after a command change, which also froze a correction that no longer fits. With this on, a stale correction is cleared at once: when a wheel still rolling one way must reverse (driving forward, then pivoting), and when a correction points away from the wheel's new target (after a turn ends). On the MAX 130 it shortened the forward drift before a pivot from 0.16 m to 0.08 m, and the dip in forward speed after a turn while weaving from 20% (up to 49%) to 4% (up to 8%). |
 
 With feedforward on, the controller also: ramps the feedforward toward the command at the acceleration limits; keeps the PID out after each command change until that wheel reaches 85% of its target (at most 0.6 s), which removes the launch overshoot; never drives a rolling wheel backwards on a stop; and only cuts small duties to zero (a VESC brake) for wheels meant to be stopped, which removes the stop-go jerk when crawling. Emergency stop, stale feedback and the command timeout bypass all of it. Odometry and ``/joint_states`` are never affected by these parameters.
 
@@ -271,6 +281,25 @@ With feedforward on, the controller also: ramps the feedforward toward the comma
     low_speed_trust_rpm: 7.0
     use_tachometer_speed: false
 ```
+
+The MAX 130 settings, calibrated at 40.3 V without payload (*Hall Interpolation ERPM* 50 on every VESC):
+
+```yaml
+    wheel_radius: 0.155           # effective radius, see Kinematics
+    wheel_base: 0.90              # effective track width, see Kinematics
+    motor_control_p_gain: 0.0005
+    motor_control_i_gain: 0.0
+    motor_control_d_gain: 0.000025
+    ff_rpm_per_duty: 322.0
+    ff_static_duty: 0.021
+    ff_turn_duty: 0.0
+    ff_calibration_voltage: 40.3
+    ff_correction_decay: 1.0
+    ff_correction_release: true
+    low_speed_trust_rpm: 2.0
+```
+
+On the ground this drove 3.015 m on the tape for 3.0 m commanded, with odometry within 0.5%, pivots at 102% and arcs at 103% of the commanded turn rate.
 
 ### Diagnostics
 
@@ -308,8 +337,8 @@ Shipped gains, tuned on hardware:
 | --- | --- | --- | --- | --- |
 | Mini | 0.0008 | 0.0 | 0.00006 | Tuned on a Mini, Orin Nano, ROS 2 Jazzy |
 | MITI | 0.0002 | 0.00002 | 0.00002 | With feedforward. Requires *Hall Interpolation ERPM* 50 on every VESC; see *Speed feedback at low speed* |
-| MAX 130 | 0.0012 | 0.0 | 0.00006 | Tuned with a 50 to 70 lb payload |
-| MAX 150 | 0.0012 | 0.0 | 0.00006 | Same drivetrain as the MAX 130; verify on the first unit |
+| MAX 130 | 0.0005 | 0.0 | 0.000025 | With feedforward, tuned without payload. Without feedforward use 0.0012 / 0.0 / 0.00006 (tuned with a 50 to 70 lb payload) |
+| MAX 150 | 0.0012 | 0.0 | 0.00006 | PID only, no feedforward; same drivetrain as the MAX 130, verify on the first unit |
 | MEGA | 0.0012 | 0.0 | 0.000005 | |
 
 ### Control mode
@@ -428,6 +457,21 @@ Zeroes x, y and yaw without restarting the driver. Useful at the start of a meas
 ``linear.y``, ``linear.z``, ``angular.x`` and ``angular.y`` are ignored on a differential drive.
 
 The teleop ceiling comes from the controller config, not the driver. In ``ps4_controller_config.yaml`` and ``ps5_controller_config.yaml`` the ``scale`` entry sets the value at full stick deflection, so ``LEFT_JOY_VERT: scale: 1.25`` means full forward stick publishes ``linear.x = 1.25`` m/s, and ``RIGHT_JOY_HORIZ: scale: 2.5`` means full sideways stick publishes ``angular.z = 2.5`` rad/s. Raise or lower those to change the robot's top teleop speed.
+
+To change the teleop feel for one robot type without editing those shared files, add a ``joy_manager`` block to that robot's config; its ``*_teleop.launch.py`` passes it to the controller launch. The Rover Pro and the MAX use this. The MAX 130 block starts at 1.25 m/s and 1.25 rad/s at full stick, adds 0.3125 per D-pad press and stops at 1.875 on both axes:
+
+```yaml
+joy_manager:
+  ros__parameters:
+    start_lin_throttle: 1.0     # x the stick scale 1.25 = 1.25 m/s
+    lin_increment: 0.25
+    max_lin_speed: 1.875
+    start_ang_throttle: 0.5     # x the stick scale 2.5 = 1.25 rad/s
+    ang_increment: 0.125
+    max_ang_speed: 1.875
+```
+
+``max_lin_speed`` and ``max_ang_speed`` cap the published command, not the D-pad multiplier: pressing past the cap still raises the multiplier, so partial stick moves faster until the D-pad is pressed back down. ``max_teleop.launch.py`` reads the same config file as ``max.launch.py``; if you switch ``max.launch.py`` to ``max_130_config.yaml``, switch ``max_teleop.launch.py`` too.
 
 ### `rover_<robot_type>/battery_status` (`sensor_msgs/BatteryState`)
 
@@ -721,6 +765,18 @@ These changes are opt-in per robot. They are enabled on the MITI, and can be ena
 - **Turn rates that match the command.** ``wheel_base`` is now the effective track width, 0.60 m, so pivots and arcs reach about 90% of the commanded rate (66% before) and wheel odometry yaw matches the IMU. See *Kinematics*.
 - **Required on every MITI:** set *Hall Interpolation ERPM* to 50 and enable CAN status 5 on each VESC in VESC Tool, then write the configuration. The new MITI gains are tuned for this setting.
 
+### MAX 130 drive update
+
+These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 150 and every other robot drive as before. All values were measured on a MAX 130 without payload.
+
+- **Calibrated geometry.** Effective wheel radius 0.155 and effective track width 0.90 m: the robot now drives 3.015 m on the tape for 3.0 m commanded, and pivots and arcs reach 98 to 103% of the commanded turn rate (53% and 49% before). See *Kinematics*.
+- **Feedforward with lower gains.** Calibrated at 40.3 V; steady speed at 100% of the command, with about half the duty ripple of the PID alone. See *Feedforward and launch control*.
+- **Arcs and pivots that hold their rate.** The PID correction no longer leaks away (``ff_correction_decay``), and a stale correction is cleared at once (``ff_correction_release``): no forward creep before a pivot and no speed dip after a turn.
+- **Firm, consistent stops.** ``brake_band_duty`` 0.20 with ``brake_momentum_carry``: every stop now follows the band, about 0.9 s from 2.2 m/s, where before some stops were soft (1.8 s) and others hard. See *Stopping and braking*.
+- **Gentle starts and turns.** ``max_linear_acceleration`` 1.5 and ``max_angular_acceleration`` 4.0: launch current fell from about 30 A to 16 A (median) and pivot-start current from 37 A to 21 A. Stops are unchanged. See *Velocity handling*.
+- **Controller limits.** Full stick gives 1.25 m/s and 1.25 rad/s, and the D-pad raises both to at most 1.875 in two presses. See ``/cmd_vel`` under *Published Topics and Units*.
+- **Required:** *Hall Interpolation ERPM* 50 on every VESC, and ``max.launch.py`` and ``max_teleop.launch.py`` both pointing at ``max_130_config.yaml``.
+
 ### What's new
 
 - **Braking band** (``brake_band_duty``, ``brake_band_rpm``, ``rpm_per_duty``). Bounds how hard the wheel controller may brake a rolling wheel. Enabled on the MAX 130 and MAX 150; off by default elsewhere. See *Stopping and braking*.
@@ -738,6 +794,10 @@ These changes are opt-in per robot. They are enabled on the MITI, and can be ena
 - **Pose covariance parameters** (``pose_linear_covariance``, ``pose_yaw_covariance``) so sensor-fusion nodes weight wheel odometry correctly.
 - **Command timeout and deceleration limit** (``cmd_vel_timeout_sec``, ``max_velocity_step``). The robot stops by itself if its velocity publisher goes quiet.
 - **Controller speed overrides.** The PS5 launch accepts ``lin_increment``, ``ang_increment``, ``max_lin_speed``, ``max_ang_speed``, ``start_lin_throttle`` and ``start_ang_throttle`` so a robot can adjust its teleop feel without editing shared files.
+- **Feedforward correction options** (``ff_correction_decay``, ``ff_correction_release``). Enabled on the MAX 130. See *Feedforward and launch control*.
+- **Gentle start limits** (``max_linear_acceleration``, ``max_angular_acceleration``). Limit how fast forward speed and turn rate build up, without changing stops. Enabled on the MAX 130. See *Velocity handling*.
+- **Braking momentum carry** (``brake_momentum_carry``). Keeps a stop on the braking band when the robot is released while still speeding up. Enabled on the MAX 130. See *Stopping and braking*.
+- **Per-robot controller limits.** ``max_teleop.launch.py`` reads a ``joy_manager`` block from the MAX config, as ``pro_teleop.launch.py`` does for the Pro. See ``/cmd_vel`` under *Published Topics and Units*.
 - **Launch supervision.** Every robot launch ends when the driver or an accessory node exits, so the service restarts the whole stack cleanly instead of respawning one node in a half-working stack.
 
 ### Bug fixes
@@ -784,6 +844,8 @@ These changes are opt-in per robot. They are enabled on the MITI, and can be ena
 - **CAN robots now refuse to drive on stale feedback.** A motor controller that stops reporting brings the robot to a stop instead of letting it drive on.
 - **Battery percentage is now configurable per pack** (see *Battery*). With the defaults a 10-cell pack still reads 0% at 34 V and 100% at 42 V. The MITI applies a 1.025 correction to the reported voltage, measured against a meter, so it reads slightly higher than before at the same pack voltage.
 - **With the BNO055 enabled, use a ``bno055`` package with the startup-retry fix** (flynneva/bno055 pull request 85). Without it the IMU node can exit at boot before its serial port appears, and the stack restarts until the port is ready.
+- **MAX 130: new gains assume feedforward.** P 0.0005 / D 0.000025 are tuned together with the MAX 130 feedforward. If you turn feedforward off, go back to P 0.0012 / D 0.00006.
+- **MAX 130: the controller is slower by default.** Full stick is now 1.25 m/s and 1.25 rad/s (1.25 m/s and 2.5 rad/s before), with a ceiling of 1.875 on both.
 - **Stopping from 160 to 215 rpm takes 0.1 to 0.25 s longer on the MAX** with the braking band enabled, and stops from full speed take about 2.1 to 2.9 s. This is the cost of keeping regenerative braking within what the battery accepts.
 
 ### Known issues
@@ -793,7 +855,10 @@ These changes are opt-in per robot. They are enabled on the MITI, and can be ena
 - On some JetPack 6 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
 - Below about 0.07 m/s on the MITI the VESC speed reading is still unreliable (too few hall edges), so a small bump can remain when starting at a crawl.
-- Feedforward is calibrated for the MITI only. Other robots use the PID alone until calibrated.
+- Feedforward is calibrated for the MITI and the MAX 130 only. Other robots use the PID alone until calibrated.
+- The MAX 130 values were measured without payload. With a heavy payload, check the feedforward and the stop distance.
+- On the MAX 130, a hard turn while driving at 2.2 m/s or faster can still draw 40 to 50 A for a moment as the inner wheels are braked through zero. The controller limits keep the robot below that speed from the pad.
+- The controller's D-pad multiplier is not capped: pressing past ``max_lin_speed`` or ``max_ang_speed`` makes partial stick faster until the D-pad is pressed back down.
 
 ### Development timeline
 
@@ -810,3 +875,5 @@ A dated record of the work in this release, for reference.
 | 2026-09-25 | Traced the MITI's low-speed speed and odometry error to the VESC *Hall Interpolation ERPM* setting, confirmed with the VESC tachometer and by counting wheel revolutions, and set it to 50. Added the tachometer speed source. Measured the effective track width (``wheel_base`` 0.60). Developed feedforward with a turn assist, launch hold and low-speed handling, fixing each defect found on the stand, and calibrated it on the ground against true wheel speed. | MITI: odometry within 0.5% of tape at 0.2 m/s; pivots 91% and arcs 90% of commanded turn rate; launches at 0.3 and 0.6 m/s without overshoot |
 | 2026-09-28 | Compared feedforward against the PID alone, with low gains and with the previous MITI gains, on a stand and in 12 ground runs with the robot reset between runs; feedforward gave the steadiest drive and the smallest launch overshoot. Added battery-voltage compensation. Confirmed steady speed at about 101% of the command in a 10 s hold. | MITI: straight-line odometry −1.0% with feedforward, −1.2% with low gains, −8.7% with the previous gains; launch peak 102% |
 | 2026-09-29 | Added battery calibration, set 0% to 3.4 V per cell, and verified the release on two MITIs, including a cold power cycle. | Two MITIs |
+| 2026-09-29 | Calibrated the MAX 130 without payload: *Hall Interpolation ERPM* 50, effective wheel radius 0.155 and track width 0.90, and feedforward from stand and ground holds in both directions. | MAX 130: tape 3.015 m for 3.0 m commanded, odometry −0.5%; pivot 104%, arc 98% |
+| 2026-09-30 | Lowered the MAX 130 gains for feedforward and added ``ff_correction_decay``. Traced the forward creep before a pivot to a correction frozen by the launch hold and added ``ff_correction_release``. Traced inconsistent stops to the braking band handing a still-accelerating wheel to the PID; set ``brake_momentum_carry`` and ``brake_band_duty`` 0.20. Added the gentle start limits, then moved them from the measured speed to the command after a speed dip while weaving, and extended ``ff_correction_release`` to corrections left over from a turn. Added the MAX controller limits. Each change was tested on a stand and then in a recorded pad drive. | MAX 130: arc 103%, pivot 102%; forward drift before a pivot 0.16 → 0.08 m; 35 of 35 stops on the band; launch current median 31 → 16 A; weaving speed dip median 20% → 4%; pivot-start current median 37 → 21 A |

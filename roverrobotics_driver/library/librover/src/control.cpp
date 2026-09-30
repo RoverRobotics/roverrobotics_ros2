@@ -405,6 +405,8 @@ void SkidRobotMotionController::resetStopState() {
   }
   ff_prev_ = {0, 0, 0, 0};
   ff_vel_ = {0, 0};
+  cmd_lin_ = 0.0f;
+  cmd_ang_ = 0.0f;
   for (int i = 0; i < 4; i++) launch_armed_[i] = false;
   speed_filter_primed_ = false;
 }
@@ -415,6 +417,7 @@ void SkidRobotMotionController::limitBrakeDuty_(bool stop, motor_data target,
                     &duty_cycles_.rr};
   const float w[4] = {rpm.fl, rpm.fr, rpm.rl, rpm.rr};
   const float tg[4] = {target.fl, target.fr, target.rl, target.rr};
+  const auto now = std::chrono::steady_clock::now();
   for (int i = 0; i < 4; i++) {
     const float speed = std::abs(w[i]);
     const float dir = std::copysign(1.0f, w[i]);
@@ -425,9 +428,14 @@ void SkidRobotMotionController::limitBrakeDuty_(bool stop, motor_data target,
       brake_scale_[i] = 1.0f;
       brake_off_[i] = false;
       brake_collapse_[i] = false;
+      brake_start_[i] = now;
       continue;
     }
-    if (speed < brake_min_[i] - 1.0f) {
+    /* momentum carry: follow the rise so it is not taken for a hill */
+    if (brake_carry_ && now - brake_start_[i] < BRAKE_CARRY_ && speed >= brake_min_[i]) {
+      brake_min_[i] = speed;
+      brake_stall_[i] = 0;
+    } else if (speed < brake_min_[i] - 1.0f) {
       brake_min_[i] = speed;
       brake_stall_[i] = 0;
     } else {
@@ -543,6 +551,31 @@ void SkidRobotMotionController::setFeedforward(float rpm_per_duty,
 void SkidRobotMotionController::setFeedforwardVoltage(float calibration_voltage) {
   std::lock_guard<std::mutex> lock(pid_mutex_);
   ff_cal_voltage_ = calibration_voltage;
+}
+
+void SkidRobotMotionController::setFeedforwardCorrectionDecay(float decay) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  ff_correction_decay_ = decay;
+}
+
+void SkidRobotMotionController::setFeedforwardCorrectionRelease(bool enable) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  ff_correction_release_ = enable;
+}
+
+void SkidRobotMotionController::setLinearAccelerationUp(float accel) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  linear_accel_up_ = accel;
+}
+
+void SkidRobotMotionController::setAngularAccelerationUp(float accel) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  angular_accel_up_ = accel;
+}
+
+void SkidRobotMotionController::setBrakeMomentumCarry(bool enable) {
+  std::lock_guard<std::mutex> lock(pid_mutex_);
+  brake_carry_ = enable;
 }
 
 void SkidRobotMotionController::setBusVoltage(float volts) { bus_voltage_ = volts; }
@@ -780,6 +813,23 @@ motor_data SkidRobotMotionController::runMotionControl(
 
   time_last_ = time_now;
 
+  /* gentle start: ramp the command, not the measured speed, so a dip from turning is corrected at full rate */
+  robot_velocities vt = velocity_targets;
+  if (linear_accel_up_ > 0.0f) {
+    const float tgt = velocity_targets.linear_velocity;
+    const float step = std::min(linear_accel_up_, max_linear_acceleration_) * std::min(delta_time, 0.1f);
+    if (tgt * cmd_lin_ < 0.0f) cmd_lin_ = 0.0f;
+    cmd_lin_ = std::abs(tgt) > std::abs(cmd_lin_) ? cmd_lin_ + std::clamp(tgt - cmd_lin_, -step, step) : tgt;
+    vt.linear_velocity = cmd_lin_;
+  }
+  if (angular_accel_up_ > 0.0f) {
+    const float tgt = velocity_targets.angular_velocity;
+    const float step = std::min(angular_accel_up_, max_angular_acceleration_) * std::min(delta_time, 0.1f);
+    if (tgt * cmd_ang_ < 0.0f) cmd_ang_ = 0.0f;
+    cmd_ang_ = std::abs(tgt) > std::abs(cmd_ang_) ? cmd_ang_ + std::clamp(tgt - cmd_ang_, -step, step) : tgt;
+    vt.angular_velocity = cmd_ang_;
+  }
+
   /* get estimated robot velocities */
   measured_velocities_ =
       computeVelocitiesFromWheelspeeds(current_wheel_speeds, robot_geometry_);
@@ -789,7 +839,7 @@ motor_data SkidRobotMotionController::runMotionControl(
   robot_velocities acceleration_limits = {max_linear_acceleration_,
                                           max_angular_acceleration_};
 
-  velocity_commands = limitAcceleration(velocity_targets, measured_velocities_,
+  velocity_commands = limitAcceleration(vt, measured_velocities_,
                                         acceleration_limits, delta_time);
 
   /* scale the angular command */
@@ -839,10 +889,10 @@ motor_data SkidRobotMotionController::runMotionControl(
          feedforward follows the requested command, never the measured-anchored limiter output */
       const float ff_dt = std::min(delta_time, 0.1f);
       ff_vel_.linear_velocity += std::clamp(
-          velocity_targets.linear_velocity - ff_vel_.linear_velocity,
+          vt.linear_velocity - ff_vel_.linear_velocity,
           -max_linear_acceleration_ * ff_dt, max_linear_acceleration_ * ff_dt);
       ff_vel_.angular_velocity += std::clamp(
-          velocity_targets.angular_velocity - ff_vel_.angular_velocity,
+          vt.angular_velocity - ff_vel_.angular_velocity,
           -max_angular_acceleration_ * ff_dt, max_angular_acceleration_ * ff_dt);
       motor_data ff_targets =
           computeSkidSteerWheelSpeeds(ff_vel_, robot_geometry_);
@@ -856,8 +906,9 @@ motor_data SkidRobotMotionController::runMotionControl(
       /* while the feedforward is still ramping it carries the move alone; the PID only corrects at steady command */
       const bool ff_ramping =
           ff_rpm_per_duty_ > 0.0f &&
-          (std::abs(velocity_targets.linear_velocity - ff_vel_.linear_velocity) > 1e-4f ||
-           std::abs(velocity_targets.angular_velocity - ff_vel_.angular_velocity) > 1e-4f);
+          (std::abs(vt.linear_velocity - ff_vel_.linear_velocity) > 1e-4f ||
+           std::abs(vt.angular_velocity - ff_vel_.angular_velocity) > 1e-4f);
+      const motor_data pid_add = motor_duties_add;
       if (ff_ramping) motor_duties_add = {0, 0, 0, 0};
       /* and it stays out per wheel until that wheel has actually caught up with the new target */
       if (ff_rpm_per_duty_ > 0.0f) {
@@ -866,7 +917,21 @@ motor_data SkidRobotMotionController::runMotionControl(
                             current_wheel_speeds.rl, current_wheel_speeds.rr};
         float *add[4] = {&motor_duties_add.fl, &motor_duties_add.fr, &motor_duties_add.rl,
                          &motor_duties_add.rr};
+        const float padd[4] = {pid_add.fl, pid_add.fr, pid_add.rl, pid_add.rr};
+        float *duty[4] = {&duty_cycles_.fl, &duty_cycles_.fr, &duty_cycles_.rl, &duty_cycles_.rr};
+        const float ffp[4] = {ff_prev_.fl, ff_prev_.fr, ff_prev_.rl, ff_prev_.rr};
         for (int i = 0; i < 4; i++) {
+          /* rolling against the new target: PID at once, correction learnt the other way dropped */
+          if (ff_correction_release_ && std::abs(tg[i]) >= FF_MIN_TARGET_RPM_ &&
+              std::abs(w[i]) >= REVERSE_MIN_RPM_ && w[i] * tg[i] < 0.0f) {
+            if (!reversing_[i]) *duty[i] = ffp[i];
+            reversing_[i] = true;
+            launch_armed_[i] = false;
+            launch_prev_tg_[i] = tg[i];
+            *add[i] = padd[i];
+            continue;
+          }
+          reversing_[i] = false;
           /* arm on any real target change: a small step can finish ramping within one cycle */
           const bool stepped = std::abs(tg[i] - launch_prev_tg_[i]) > LAUNCH_TARGET_STEP_RPM_;
           launch_prev_tg_[i] = tg[i];
@@ -887,14 +952,23 @@ motor_data SkidRobotMotionController::runMotionControl(
             if (low) *add[i] *= LOW_SPEED_PID_SCALE_;
             continue;
           }
+          /* a correction pulling away from the new target is stale, not windup: let the PID clear it */
+          const float corr = *duty[i] - ffp[i];
+          if (ff_correction_release_ && std::abs(corr) > STALE_CORR_DUTY_ && corr * (tg[i] - w[i]) < 0.0f) {
+            *add[i] = padd[i];
+            launch_t_[i] += ff_dt;
+            continue;
+          }
           *add[i] = 0.0f;
           launch_t_[i] += ff_dt;
         }
       }
-      duty_cycles_.fl = (duty_cycles_.fl - ff_prev_.fl + motor_duties_add.fl) * geometric_decay_ + ff.fl;
-      duty_cycles_.fr = (duty_cycles_.fr - ff_prev_.fr + motor_duties_add.fr) * geometric_decay_ + ff.fr;
-      duty_cycles_.rr = (duty_cycles_.rr - ff_prev_.rr + motor_duties_add.rr) * geometric_decay_ + ff.rr;
-      duty_cycles_.rl = (duty_cycles_.rl - ff_prev_.rl + motor_duties_add.rl) * geometric_decay_ + ff.rl;
+      const float corr_decay = (ff_rpm_per_duty_ > 0.0f && ff_correction_decay_ > 0.0f)
+                                   ? ff_correction_decay_ : geometric_decay_;
+      duty_cycles_.fl = (duty_cycles_.fl - ff_prev_.fl + motor_duties_add.fl) * corr_decay + ff.fl;
+      duty_cycles_.fr = (duty_cycles_.fr - ff_prev_.fr + motor_duties_add.fr) * corr_decay + ff.fr;
+      duty_cycles_.rr = (duty_cycles_.rr - ff_prev_.rr + motor_duties_add.rr) * corr_decay + ff.rr;
+      duty_cycles_.rl = (duty_cycles_.rl - ff_prev_.rl + motor_duties_add.rl) * corr_decay + ff.rl;
       ff_prev_ = ff;
 
       /* clamp the state, not just the output, so it cannot wind up */

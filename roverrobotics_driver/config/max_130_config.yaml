@@ -8,8 +8,8 @@ roverrobotics_driver:
     device_port: "rovercan" # "rovercan" for differential/mecanum | "internal" for differential/mecanum with blue-ox board
 
     # Robot Kinematics
-    wheel_radius: 0.1651  # Wheel radius(meters) (0.1905 ------ 15 Inch wheels), (0.1651 -------- 13 Inch wheels), (0.08255 ----- 6.5 Inch wheels)
-    wheel_base: 0.4953     # Distance between wheels side-to-side from the center of the wheel (meters)
+    wheel_radius: 0.155  # effective rolling radius of the 13 Inch wheels (nominal 0.1651), measured 2026-09-29
+    wheel_base: 0.90     # effective skid-steer track (geometric 0.4953), measured 2026-09-29
     robot_length: 0.4445   # Distance between wheels front-to-back from center of the wheel (meters)
     gear_ratio: 5.0
     motor_pole_pairs: 10.0     # 20-pole motor; VESC reports eRPM, mech RPM = eRPM / pole pairs
@@ -19,10 +19,11 @@ roverrobotics_driver:
     battery_voltage_multiplier: 1.0    # Adjust if VESC voltage reading is off
     battery_max_cell_voltage: 4.2      # Fully charged cell voltage
     battery_min_cell_voltage: 3.4      # Empty cell voltage
-    max_velocity_step: 0.75 # Maximum velocity step for deceleration
+    max_velocity_step: 0.75       # max reduction in linear velocity per 50 ms cycle
     rest_wheel_rpm: 8.0        # below this wheel rpm a stopped wheel is released
-    brake_band_duty: 0.10      # 0.0 = off; max duty below the speed-holding duty while braking
+    brake_band_duty: 0.20      # 0.0 = off; max duty below the speed-holding duty while braking (0.20 = firm stop)
     brake_band_rpm: 160.0      # above this wheel rpm the band shrinks as 1/rpm
+    brake_momentum_carry: true # a wheel still speeding up just after a stop stays on the band (not taken for a hill)
     rpm_per_duty: 325.0        # wheel rpm per unit duty; keep within 320.0-335.0
     release_hold_s: 0.0        # SET_DUTY 0 hold after the wheels read 0
     cmd_vel_timeout_sec: 0.3      # stop if no new twist for >300 ms
@@ -32,9 +33,18 @@ roverrobotics_driver:
     wheel_trim_rr: 1.0 #0.9686   # example: fast new motor
 
     # PID for wheel controllers and limits
-    motor_control_p_gain: 0.0012
+    motor_control_p_gain: 0.0005     # gains tuned with feedforward on
     motor_control_i_gain: 0.00000
-    motor_control_d_gain: 0.00006
+    motor_control_d_gain: 0.000025
+    ff_rpm_per_duty: 322.0           # feedforward: wheel rpm per unit duty, 0 = feedforward off
+    ff_static_duty: 0.021            # duty to overcome friction at any nonzero speed
+    ff_turn_duty: 0.0                # extra breakaway duty on a pivot, 0 = off
+    ff_calibration_voltage: 40.3     # bus voltage the feedforward was measured at, 0 = no compensation
+    ff_correction_decay: 1.0         # per-cycle decay of the PID correction, 0 = standard decay, 1.0 = none
+    ff_correction_release: true      # PID clears a stale correction at once (wheel reversing, or after a turn)
+    max_linear_acceleration: 1.5     # m/s^2 while speeding up only, 0 = built-in limit; stops are unaffected
+    max_angular_acceleration: 4.0    # rad/s^2 while a turn builds up only, 0 = built-in limit
+    low_speed_trust_rpm: 2.0         # below this wheel rpm the PID is scaled down and feedforward leads
     #linear_top_speed: 3.0 # Meters-per-second
     #angular_top_speed: 3.0 # Radians-per-second
     #angular_a_coef: 0.8
@@ -63,3 +73,13 @@ roverrobotics_driver:
     estop_reset_topic: "/soft_estop/reset"       # Bool true = release (PS4/PS5 Triangle)
     estop_status_topic: "/soft_estop/status"     # latched Bool, true while stopped
     estop_state: false                           # true = start up already stopped
+
+# PS4/PS5 pad limits for max_teleop.launch.py
+joy_manager:
+  ros__parameters:
+    start_lin_throttle: 1.0     # full stick = 1.0 x 1.25 = 1.25 m/s
+    lin_increment: 0.25         # D-pad up/down: +/-0.3125 m/s per press
+    max_lin_speed: 1.875        # forward/back ceiling, m/s
+    start_ang_throttle: 0.5     # full stick = 0.5 x 2.5 = 1.25 rad/s
+    ang_increment: 0.125        # D-pad left/right: +/-0.3125 rad/s per press
+    max_ang_speed: 1.875        # turn ceiling, rad/s
