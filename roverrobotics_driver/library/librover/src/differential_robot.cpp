@@ -130,6 +130,26 @@ void DifferentialRobot::setFeedforwardVoltage(float calibration_voltage) {
   skid_control_->setFeedforwardVoltage(calibration_voltage);
 }
 
+void DifferentialRobot::setFeedforwardCorrectionDecay(float decay) {
+  skid_control_->setFeedforwardCorrectionDecay(decay);
+}
+
+void DifferentialRobot::setFeedforwardCorrectionRelease(bool enable) {
+  skid_control_->setFeedforwardCorrectionRelease(enable);
+}
+
+void DifferentialRobot::setLinearAccelerationUp(float accel) {
+  skid_control_->setLinearAccelerationUp(accel);
+}
+
+void DifferentialRobot::setAngularAccelerationUp(float accel) {
+  skid_control_->setAngularAccelerationUp(accel);
+}
+
+void DifferentialRobot::setBrakeMomentumCarry(bool enable) {
+  skid_control_->setBrakeMomentumCarry(enable);
+}
+
 float DifferentialRobot::tachRpm_(int vid, std::chrono::steady_clock::time_point now,
                                   int32_t tach) {
   auto &h = tach_hist_[vid];
