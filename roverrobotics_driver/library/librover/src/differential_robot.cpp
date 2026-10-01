@@ -114,6 +114,69 @@ void DifferentialRobot::set_wheel_trims(double fl, double fr, double rl, double 
   }
 }
 
+void DifferentialRobot::setDriveTuning(float ff_rpm_per_duty,
+                                       float ff_static_duty,
+                                       float ff_turn_duty,
+                                       float wheel_speed_filter) {
+  skid_control_->setFeedforward(ff_rpm_per_duty, ff_static_duty, ff_turn_duty);
+  skid_control_->setSpeedFilter(wheel_speed_filter);
+}
+
+void DifferentialRobot::setUseTachometer(bool use) { use_tach_ = use; }
+
+void DifferentialRobot::setLowSpeedTrust(float rpm) { skid_control_->setLowSpeedTrust(rpm); }
+
+void DifferentialRobot::setFeedforwardVoltage(float calibration_voltage) {
+  skid_control_->setFeedforwardVoltage(calibration_voltage);
+}
+
+void DifferentialRobot::setFeedforwardCorrectionDecay(float decay) {
+  skid_control_->setFeedforwardCorrectionDecay(decay);
+}
+
+void DifferentialRobot::setFeedforwardCorrectionRelease(bool enable) {
+  skid_control_->setFeedforwardCorrectionRelease(enable);
+}
+
+void DifferentialRobot::setLinearAccelerationUp(float accel) {
+  skid_control_->setLinearAccelerationUp(accel);
+}
+
+void DifferentialRobot::setAngularAccelerationUp(float accel) {
+  skid_control_->setAngularAccelerationUp(accel);
+}
+
+void DifferentialRobot::setBrakeMomentumCarry(bool enable) {
+  skid_control_->setBrakeMomentumCarry(enable);
+}
+
+float DifferentialRobot::tachRpm_(int vid, std::chrono::steady_clock::time_point now,
+                                  int32_t tach) {
+  auto &h = tach_hist_[vid];
+  h.emplace_back(now, tach);
+  auto secs = [](std::chrono::steady_clock::duration d) {
+    return std::chrono::duration<float>(d).count();
+  };
+  while (h.size() > 2 && secs(now - h.front().first) > TACH_MAX_WINDOW_S_) h.pop_front();
+  /* shortest window that holds enough steps, else the whole window */
+  const std::pair<std::chrono::steady_clock::time_point, int32_t> *ref = nullptr;
+  for (auto it = h.rbegin() + 1; it != h.rend(); ++it) {
+    const int32_t steps = static_cast<int32_t>(static_cast<uint32_t>(tach) -
+                                               static_cast<uint32_t>(it->second));
+    if (secs(now - it->first) >= TACH_MIN_WINDOW_S_ && std::abs(steps) >= TACH_MIN_STEPS_) {
+      ref = &*it;
+      break;
+    }
+    ref = &*it;
+  }
+  if (!ref) return 0.0f;
+  const float dt = secs(now - ref->first);
+  if (dt < TACH_MIN_WINDOW_S_) return 0.0f;
+  const int32_t steps = static_cast<int32_t>(static_cast<uint32_t>(tach) -
+                                             static_cast<uint32_t>(ref->second));
+  return (steps / TACH_STEPS_PER_EREV_ / dt * 60.0f / motor_pole_pairs_) / gear_ratio_;
+}
+
 void DifferentialRobot::send_estop(bool estop) {
   robotstatus_mutex_.lock();
   estop_ = estop;
@@ -143,28 +206,51 @@ void DifferentialRobot::set_robot_velocity(double *control_array) {
 void DifferentialRobot::unpack_comm_response(std::vector<uint8_t> robotmsg) {
   if (comm_type_ == "CAN") {
     auto parsedMsg = vescArray_.parseReceivedMessage(robotmsg);
+    if (parsedMsg.tachValid && parsedMsg.vescId >= VESC_IDS::FRONT_LEFT &&
+        parsedMsg.vescId <= VESC_IDS::BACK_RIGHT) {
+      const auto now = std::chrono::steady_clock::now();
+      robotstatus_mutex_.lock();
+      const float rpm = tachRpm_(parsedMsg.vescId, now, parsedMsg.tachometer);
+      tach_ts_[parsedMsg.vescId] = now;
+      if (use_tach_) {
+        switch (parsedMsg.vescId) {
+          case (VESC_IDS::FRONT_LEFT): robotstatus_.motor1_rpm = rpm; break;
+          case (VESC_IDS::FRONT_RIGHT): robotstatus_.motor2_rpm = rpm; break;
+          case (VESC_IDS::BACK_LEFT): robotstatus_.motor3_rpm = rpm; break;
+          case (VESC_IDS::BACK_RIGHT): robotstatus_.motor4_rpm = rpm; break;
+          default: break;
+        }
+      }
+      robotstatus_mutex_.unlock();
+    }
     if (parsedMsg.dataValid) {
       robotstatus_mutex_.lock();
       if (parsedMsg.vescId >= VESC_IDS::FRONT_LEFT && parsedMsg.vescId <= VESC_IDS::BACK_RIGHT)
         status_ts_[parsedMsg.vescId] = std::chrono::steady_clock::now();
+      /* with the tachometer in charge, status 1 only supplies rpm while that wheel's tachometer is quiet */
+      const bool tach_live =
+          use_tach_ && parsedMsg.vescId >= VESC_IDS::FRONT_LEFT &&
+          parsedMsg.vescId <= VESC_IDS::BACK_RIGHT &&
+          std::chrono::steady_clock::now() - tach_ts_[parsedMsg.vescId] <
+              std::chrono::milliseconds(TACH_STALE_MS_);
       switch (parsedMsg.vescId) {
         case (VESC_IDS::FRONT_LEFT):
-          robotstatus_.motor1_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
+          if (!tach_live) robotstatus_.motor1_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor1_id = parsedMsg.vescId;
           robotstatus_.motor1_current = parsedMsg.current;
           break;
         case (VESC_IDS::FRONT_RIGHT):
-          robotstatus_.motor2_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
+          if (!tach_live) robotstatus_.motor2_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor2_id = parsedMsg.vescId;
           robotstatus_.motor2_current = parsedMsg.current;
           break;
         case (VESC_IDS::BACK_LEFT):
-          robotstatus_.motor3_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
+          if (!tach_live) robotstatus_.motor3_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor3_id = parsedMsg.vescId;
           robotstatus_.motor3_current = parsedMsg.current;
           break;
         case (VESC_IDS::BACK_RIGHT):
-          robotstatus_.motor4_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
+          if (!tach_live) robotstatus_.motor4_rpm = (parsedMsg.erpm / motor_pole_pairs_) / gear_ratio_;
           robotstatus_.motor4_id = parsedMsg.vescId;
           robotstatus_.motor4_current = parsedMsg.current;
           break;
@@ -575,6 +661,7 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
     rpm_BL = robotstatus_.motor3_rpm;
     rpm_BR = robotstatus_.motor4_rpm;
     time_from_msg = robotstatus_.cmd_ts;
+    skid_control_->setBusVoltage(robotstatus_.battery1_voltage);
     estop = estop_;
     stale_vesc = 0;
     stale_ms = 0;

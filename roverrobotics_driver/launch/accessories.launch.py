@@ -7,6 +7,7 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import LogInfo
+from launch.actions import Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from math import pi
@@ -32,8 +33,9 @@ def generate_launch_description():
             executable='rplidar_composition',
             name='rplidar',
             parameters=[accessories_config_path],
-            output='screen')
-    
+            output='screen',
+            on_exit=Shutdown())
+
         # Add RPLidar S2 to launch description
         ld.add_action(lidar_node)
     
@@ -76,7 +78,8 @@ def generate_launch_description():
             parameters = [accessories_config_path],
             remappings=[
                 ('/imu', '/imu/data')
-            ])
+            ],
+            on_exit=Shutdown())
         
         # Add BNO055 IMU to launch description
         ld.add_action(bno055_node)
@@ -88,7 +91,8 @@ def generate_launch_description():
             name="realsense",
             executable='realsense2_camera_node',
             parameters=[accessories_config_path],
-            output='screen')
+            output='screen',
+            on_exit=Shutdown())
 
         # Add Realsense d435i to launch description
         ld.add_action(realsense_node)

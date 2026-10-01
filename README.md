@@ -24,6 +24,125 @@
   
   
 
+## New here? Start with this
+
+This section is for anyone who has never used ROS. It takes you from a fresh computer to a driving robot, and shows where everything lives. You do not need to read the rest of this page to get started.
+
+### What you need
+
+- A Rover robot (Mini, MITI, MAX, MEGA, Pro or Zero).
+- One computer that runs ROS and drives the robot, connected to it (for example an NVIDIA Jetson mounted on the robot). It must run **Ubuntu 24.04** for the ``jazzy`` branch or **Ubuntu 22.04** for the ``humble`` branch (on a Jetson: JetPack 7 or JetPack 6). The install script picks the right branch for you. The robot does not include a computer.
+- An internet connection on that computer, and a keyboard and screen or an SSH connection to it.
+- A PS5 or PS4 controller to drive with.
+
+### ROS words in plain English
+
+You will see these words below and in the rest of this page:
+
+| Word | What it means here |
+| --- | --- |
+| **ROS 2** | The software framework the robot runs on. It is installed for you. |
+| **Workspace** | The folder that holds the robot's software: ``~/rover_workspace``. |
+| **Package** | One folder of related software inside the workspace, for example the driver. |
+| **Config file** | A text file (``.yaml``) with settings you can edit, such as top speed or which sensors are on. |
+| **Build** | Turning the source files into the version the robot runs. Needed after you edit a config file. |
+| **Launch file** | A file that starts several programs together, for example the driver plus the controller. |
+| **Topic** | A named stream of data, such as ``/imu/data`` for the IMU or ``/scan`` for the LiDAR. |
+| **Service** | ``roverrobotics.service``: starts the robot software automatically every time the computer boots. |
+
+### Step 1: Install everything
+
+The install script does all the work. On the computer connected to the robot, open a terminal and run:
+
+```bash
+git clone https://github.com/RoverRobotics/rover_install_scripts_ros2
+cd rover_install_scripts_ros2
+./setup_rover.sh
+```
+
+It asks a few questions. Good answers for a first install:
+
+- **Robot:** pick your robot. A MAX also asks for its wheel size (13 or 15 inch).
+- **Controller:** PS5 or PS4, whichever you have.
+- **Start at boot (service):** yes. The robot is then ready to drive every time it powers on.
+- **IMU (BNO055)** and **LiDAR (RPLIDAR S2):** say yes if your robot has them. This installs their software; you switch them on in Step 5.
+- **RealSense camera:** yes if your robot has one.
+
+The install takes from about 15 minutes to an hour, depending on the computer and the options. Progress is shown on screen and saved to ``~/rover_setup.log``. Reboot when it finishes.
+
+### Step 2: Drive
+
+1. **Put the robot on a stand with the wheels off the ground for your first test.**
+2. Pair the controller once: on the computer run ``bluetoothctl``, then ``scan on``, hold the controller's pairing buttons (PS5: Create + PS; PS4: Share + PS) until it flashes, then ``pair <address>``, ``trust <address>``, ``connect <address>`` and ``exit``.
+3. Drive with the left stick (forward and back) and the right stick (turning).
+4. **Circle (○) is the emergency stop. Triangle (△) releases it.** Try both before driving on the ground.
+
+All buttons are listed under *Controller buttons* below.
+
+### Step 3: Everyday commands
+
+Open a terminal on the computer and use these:
+
+| To do this | Run |
+| --- | --- |
+| See whether the robot software is running | ``systemctl status roverrobotics`` |
+| Restart it (after a settings change, or if it misbehaves) | ``sudo systemctl restart roverrobotics`` |
+| Stop it | ``sudo systemctl stop roverrobotics`` |
+| Start it again | ``sudo systemctl start roverrobotics`` |
+| Watch its messages live (Ctrl+C to quit) | ``journalctl -u roverrobotics -f`` |
+| List all data streams (topics) | ``ros2 topic list`` |
+| Check that a stream is updating, and how fast | ``ros2 topic hz /odometry/wheels`` |
+| Print the data of a stream | ``ros2 topic echo /odometry/wheels`` (Tab completes names) |
+
+If you did not install the service, start the robot by hand instead, and keep that terminal open while you drive:
+
+```bash
+ros2 launch roverrobotics_driver <robot>_teleop.launch.py
+```
+
+Replace ``<robot>`` with ``mini``, ``miti``, ``max``, ``mega``, ``pro``, ``zero``, ``mini_2wd`` or ``miti_65``.
+
+### Step 4: Change a setting
+
+Every setting lives in a config file in the driver package. The general recipe is always the same:
+
+1. **Edit** the file, for example with ``nano``:
+   ```bash
+   nano ~/rover_workspace/src/roverrobotics_ros2/roverrobotics_driver/config/accessories.yaml
+   ```
+   Save with Ctrl+O and Enter, quit with Ctrl+X. Keep the indentation (spaces at the start of lines) exactly as it is.
+2. **Build**, so the robot uses the edited file:
+   ```bash
+   cd ~/rover_workspace
+   colcon build
+   ```
+3. **Restart** the robot software:
+   ```bash
+   sudo systemctl restart roverrobotics
+   ```
+
+Edits in ``~/rover_workspace/src`` do nothing until you build. If a change seems to have no effect, you probably skipped the build.
+
+### Step 5: Turn on your sensors
+
+The IMU, LiDARs and camera are all switched on in one file, ``accessories.yaml``. Each one has its own short guide under *Adding Sensors* below, written for beginners.
+
+### Where things are
+
+Everything is inside ``~/rover_workspace/src/roverrobotics_ros2``:
+
+| Folder or file | What it holds | Do you edit it? |
+| --- | --- | --- |
+| ``roverrobotics_driver/config/<robot>_config.yaml`` | Your robot's settings: speed limits, wheel size, motor control | Sometimes |
+| ``roverrobotics_driver/config/accessories.yaml`` | Which sensors are on, and their settings | Yes, to add sensors |
+| ``roverrobotics_driver/config/topics.yaml`` | What each controller button does | Rarely |
+| ``roverrobotics_driver/launch/`` | Launch files that start the robot (``max.launch.py``, ``max_teleop.launch.py`` and so on) | Rarely |
+| ``roverrobotics_description/urdf/`` | The 3D model of each robot and where each sensor is mounted | Only if you move a sensor |
+| ``roverrobotics_driver/src`` and ``library/`` | The driver's source code | No |
+| ``roverrobotics_gazebo/`` | Simulation | Only for simulation |
+
+The MAX has one config per wheel size: ``max_130_config.yaml`` for 13 inch wheels and ``max_150_config.yaml`` for 15 inch. The install script points the MAX launch files at the right one.
+
 ## Installation:
 
 Installation is made simple through two options:
@@ -159,7 +278,11 @@ Confirm with ``ip -br link``, which should list ``rovercan``.
 | ``motor_pole_pairs`` | Pole pairs in the drive motor, i.e. half the pole count. A VESC reports electrical RPM, and mechanical RPM is electrical RPM divided by this. **Mini and MITI are 30-pole, so 15.0; MAX and MEGA are 20-pole, so 10.0.** Getting it wrong scales every wheel speed and all of wheel odometry by the same factor. |
 | ``gear_ratio`` | Motor revolutions per wheel revolution on geared drivetrains. Applied to the RPM feedback to convert motor RPM to wheel RPM. The MEGA and MAX are geared; the Mini and MITI are direct drive and must stay at ``1.0``, which makes the conversion a no-op. Values of zero or less are rejected and treated as ``1.0``. |
 
-The MAX is supported with 13 inch (``max_130_config.yaml``, radius 0.1651) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
+The MAX is supported with 13 inch (``max_130_config.yaml``, nominal radius 0.1651, calibrated effective radius 0.155) and 15 inch (``max_150_config.yaml``, radius 0.1905) wheels. The 6.5 inch and 10 inch variants are no longer supported and their configs and URDFs have been removed. Selecting the wrong config silently scales odometry and commanded velocity, so confirm the radius matches the wheels actually fitted.
+
+**Effective track width on skid-steer robots.** The tyres slide sideways in a turn, so the robot rotates less than its wheel speeds imply. Setting ``wheel_base`` to the *effective* track width instead of the measured distance between wheel centers corrects both sides at once: a commanded turn rate produces that turn rate, and wheel odometry reports the rotation that actually happens. To measure it, command a pivot (for example 1.0 rad/s), record the true wheel speed and the IMU yaw rate once settled, and compute ``2 × wheel surface speed ÷ IMU yaw rate``. On a MITI (measured wheel base 0.387 m) this gave **0.60 m**: pivots went from 66% to 91% of the commanded rate and odometry yaw matched the IMU within 1% in arcs. On a MAX 130 (measured wheel base 0.4953 m) it gave **0.90 m**: pivots went from 53% to 99% and arcs from 49% to 98% of the commanded rate. The value depends on tyres and floor, so navigation should still fuse IMU yaw.
+
+**Effective wheel radius.** A loaded tyre rolls on a slightly smaller radius than its nominal size. Drive a measured straight line, compare the tape distance with the wheel revolutions counted by the VESC tachometer, and set ``wheel_radius`` to the result. On the MAX 130 this gave 0.155 instead of the nominal 0.1651, and moved odometry from +5.8% to within 1% of the tape.
 
 ### Wheel trim
 
@@ -178,6 +301,8 @@ All four default to ``1.0``. Use them to compensate for a wheel that runs fast o
 | --- | --- |
 | ``max_velocity_step`` | Maximum reduction in linear velocity per 50 ms cycle, applied to forward motion only. Limits how sharply the robot decelerates when a command drops. **0.75 on every robot**, chosen by testing on hardware: the earlier 0.05 made the robot coast noticeably after the stick was released. On the CAN robots the motor library also caps acceleration at 5 m/s^2 relative to the measured speed, and that cap is the one in effect at any value above about 0.25, so small changes here have no effect. |
 | ``cmd_vel_timeout_sec`` | If no new message arrives on the velocity topic within this period, the velocity targets are zeroed and the robot ramps to a stop. Defaults to ``0.3``. |
+| ``max_linear_acceleration`` | Gentle start, CAN robots, opt-in (``0`` = off, the default). While the commanded forward speed is rising, the command given to the wheel controller climbs at this rate in m/s^2 instead of the built-in 5 m/s^2. Slowing down and stopping are not affected. The command is ramped, not the measured speed, so a speed dip caused by turning is corrected at the normal rate. **1.5 on the MAX 130.** |
+| ``max_angular_acceleration`` | The same for turning, in rad/s^2 (``0`` = off, built-in 30 rad/s^2). Applies while a turn builds up; easing off a turn is immediate, and reversing the turn direction goes through zero first. **4.0 on the MAX 130**, where it lowered the peak motor current at the start of a pivot from standstill from 37 A to 21 A (median). |
 
 The timeout is a safety stop for a lost or stalled publisher. Any node commanding the robot must publish continuously, not once per change of speed.
 
@@ -196,6 +321,7 @@ These parameters shape how a CAN robot comes to rest when the commanded speed dr
 | ``brake_band_rpm`` | Above this wheel speed the band narrows in proportion to 1/rpm, so braking current stays roughly constant as speed rises instead of growing with it. |
 | ``rpm_per_duty`` | Wheel rpm produced by one unit of duty with no load, i.e. the motor's back-EMF constant expressed at the wheel. The band is computed from it. With the band enabled, values outside 300 to 340 are rejected as a likely typo and the band is switched off. |
 | ``release_hold_s`` | Optional. Keeps the motors actively braked for this many seconds after the wheels read zero before releasing them, which can help hold the robot on a slope. ``0.0`` (default) releases immediately. Accepted range 0 to 1. |
+| ``brake_momentum_carry`` | Opt-in (default ``false``). The band hands a wheel back to the PID when its speed rises during braking, which is how a downhill roll is detected. A robot released in the middle of a short push keeps speeding up for about 0.1 to 0.2 s from momentum, which that rule mistook for a hill, so some stops were firm and others soft. With this on, a rise within the first 200 ms of a stop is followed rather than treated as a hill; a real downhill roll is still handed to the PID, at most 200 ms later. **On for the MAX 130.** |
 
 **Why the braking band exists.** The wheel controller accumulates duty and lowers it gradually on a stop. Without the band it overshoots through zero and briefly commands the opposite direction while the wheel is still turning, which on a VESC means plugging the motor: the robot stops with a sharp kick and can rock. At high speed the same controller can brake hard enough to push the battery's regenerative current past what its protection circuit accepts, which opens the charge path and lets the bus voltage climb far above the pack voltage. The band removes both: duty lands on zero at low speed and the motor's own short-circuit brake finishes the stop, and braking current is capped at speed.
 
@@ -203,15 +329,96 @@ These parameters shape how a CAN robot comes to rest when the commanded speed dr
 
 ```yaml
     rest_wheel_rpm: 8.0
-    brake_band_duty: 0.10
+    brake_band_duty: 0.10         # MAX 150; 0.20 on the MAX 130
     brake_band_rpm: 160.0
+    brake_momentum_carry: false   # true on the MAX 130
     rpm_per_duty: 325.0
     release_hold_s: 0.0
 ```
 
+**Choosing ``brake_band_duty``.** The band sets how firmly the robot stops. On an unloaded MAX 130, 0.10 gave about 1.1 m/s^2 (1.8 s from 2.2 m/s) and 0.20 gave about 2.4 m/s^2 (0.9 s from 2.2 m/s). With 0.20 and ``brake_momentum_carry`` on, all 35 pad stops in a recorded drive stayed on the band with a peak motor current of 15 to 31 A, and the bus voltage stayed within 1.7 V of the pack voltage.
+
 **Calibrating ``rpm_per_duty``.** Put the robot on a stand with the wheels clear of the ground, drive it at three or four steady speeds (for example 1, 2, 3 and 3.8 m/s) and read the wheel rpm and duty from the VESC status frames. Divide rpm by duty at each speed and use the value measured at the higher speeds. On the MAX 130 this measured 322 to 329, so 325 is used. Stay within 320 to 335 unless you have measured otherwise: higher values brake harder and can trip the battery protection, lower values brake more softly and can let the robot roll further downhill.
 
 The band applies in ``INDEPENDENT_WHEEL`` mode only. It does not act during an emergency stop, which always brakes as hard as the motors allow.
+
+### Speed feedback at low speed
+
+On CAN robots the driver takes each wheel's speed from the VESC status message (electrical RPM). With hall-sensored motors, the VESC reports roughly **half the real speed below its *Hall Interpolation ERPM* setting** (VESC Tool, Motor Settings → FOC → Hall Sensors; default 500) and the correct speed above it. Everything built on that value is then wrong at low speed: the wheel controller holds the under-reading at target, so the robot drives too fast, and odometry under-reports distance by the same factor.
+
+Measured on a MITI (direct-drive hub motors, 15 pole pairs), true speed from the VESC tachometer ÷ reported speed:
+
+| Command | True eRPM | Interp. 500 | Interp. 150 | Interp. 50 |
+| --- | --- | --- | --- | --- |
+| 0.05 m/s | 57 | – | 2.1 | 1.2 |
+| 0.1 m/s | 113 | 2.2–2.6 | 2.1 | 1.03–1.09 |
+| 0.2 m/s | 228 | 1.5–2.3 | 1.00 | 1.00 |
+| 0.4 m/s | 452 | 1.01–1.11 | 0.99 | 1.00 |
+| 0.8 m/s | 905 | 0.99 | 0.99 | 0.99 |
+
+**Fix: set *Hall Interpolation ERPM* to 50 on every VESC** and write the configuration. On the MITI this brought odometry within 0.5% of a tape measurement at 0.2 m/s (it was 32% short before). Below about 100 eRPM (≈0.07 m/s on a MITI) the reported speed is still unreliable because too few hall edges arrive. The setting lives in the VESCs, not in this repository, so it must be applied to each robot. Direct-drive robots are the most affected; geared robots spin their motors faster at the same ground speed, but a MAX with hall sensors at the default setting is still affected below about 0.18 m/s.
+
+``use_tachometer_speed`` (default ``false``) is a fallback that computes each wheel's speed from the VESC tachometer (CAN status 5) instead. It is correct at every speed but updates more slowly at low speed, so it is best left off once the VESC setting above is applied. It requires status 5 to be enabled on every VESC; a wheel whose tachometer goes quiet falls back to the status value.
+
+**Where to see the tachometer.** No topic carries the tachometer on its own. With ``use_tachometer_speed: true`` the tachometer speed *replaces* the wheel speed everywhere the driver publishes it: ``/joint_states`` ``velocity``, ``/robot_status`` indices 1, 6, 11 and 16, and the wheel odometry. With it ``false`` (the default) the driver still decodes the tachometer but publishes nothing from it. To compare the two sources directly, read the CAN bus:
+
+```bash
+candump -ta rovercan,1B00:1FF00   # status 5 frames, ID 0x1B0N for VESC N
+```
+
+Bytes 0-3 are the tachometer, a signed 32-bit count that grows by 6 per electrical revolution (on a MITI, 6 × 15 = 90 counts per wheel revolution); bytes 4-5 are the bus voltage × 10. Wheel rpm = change in count ÷ 6 ÷ seconds × 60 ÷ ``motor_pole_pairs`` ÷ ``gear_ratio``. VESC Tool shows the same counter as *Tachometer* in its realtime data. Status 5 must be enabled on each VESC (VESC Tool, App Settings → General → CAN Status Message Rate).
+
+### Feedforward and launch control
+
+Feedforward gives each wheel the duty its target speed needs straight away, from a calibrated model of the motor, so the PID only has to correct the small remainder. The result is faster response without overshoot and a quieter drive at low gains. It applies to ``INDEPENDENT_WHEEL`` mode, is opt-in per robot, and is enabled on the MITI and the MAX 130. Every parameter defaults to off; with ``ff_rpm_per_duty`` at 0 the controller behaves exactly as without it.
+
+| Parameter | Description |
+| --- | --- |
+| ``ff_rpm_per_duty`` | Enables feedforward. Each wheel is given ``ff_static_duty + abs(target rpm) / ff_rpm_per_duty`` immediately, and the PID only corrects the remainder. Measured under load on the ground, not on a stand. |
+| ``ff_static_duty`` | Duty needed just to keep the wheels rolling (friction). |
+| ``ff_turn_duty`` | Extra duty that helps a pivot break the tyres free. It acts only on the turning part of a command, so it adds no forward push in an arc, and fades out as each wheel reaches its target. |
+| ``ff_calibration_voltage`` | Battery voltage at which the feedforward was calibrated (0 = off). The feedforward is scaled by ``calibration voltage ÷ battery voltage`` (limited to 0.7–1.4), so the same duty-per-speed holds as the battery drains or on a fuller pack. Uses the voltage the VESCs report. |
+| ``low_speed_trust_rpm`` | Below this wheel speed the speed feedback is treated as unreliable: after a command change the PID stays out for the full launch window and then runs at 25% strength. Around 100 eRPM expressed in wheel rpm (7.0 on a MITI). |
+| ``wheel_speed_filter`` | Smoothing of the speed the PID sees (0 = off, 0.5 = moderate). Does not affect odometry. |
+| ``ff_correction_decay`` | Per-cycle decay applied to the PID's correction on top of the feedforward (``0`` = the standard output decay of 0.989; ``1.0`` = no decay; otherwise 0.9 to 1.0). With the standard decay the correction leaks away, which leaves a steady speed error; on the MAX 130 the inner wheels of an arc ran 11 to 17% fast. ``1.0`` removed that error and halved the current at the start of an arc (34.7 A to 18.9 A). |
+| ``ff_correction_release`` | Opt-in (default ``false``). The launch hold keeps the PID out after a command change, which also froze a correction that no longer fits. With this on, a stale correction is cleared at once: when a wheel still rolling one way must reverse (driving forward, then pivoting), and when a correction points away from the wheel's new target (after a turn ends). On the MAX 130 it shortened the forward drift before a pivot from 0.16 m to 0.08 m, and the dip in forward speed after a turn while weaving from 20% (up to 49%) to 4% (up to 8%). |
+
+With feedforward on, the controller also: ramps the feedforward toward the command at the acceleration limits; keeps the PID out after each command change until that wheel reaches 85% of its target (at most 0.6 s), which removes the launch overshoot; never drives a rolling wheel backwards on a stop; and only cuts small duties to zero (a VESC brake) for wheels meant to be stopped, which removes the stop-go jerk when crawling. Emergency stop, stale feedback and the command timeout bypass all of it. Odometry and ``/joint_states`` are never affected by these parameters.
+
+**Calibration.** On the ground, drive steady speeds in both directions (for example ±0.1, 0.2, 0.4 and 0.6 m/s), record the settled duty and true wheel rpm from the VESC status frames, and fit ``duty = static + rpm / rpm_per_duty``. The values depend on the robot model, its tyres and the floor; set ``ff_calibration_voltage`` to the battery voltage during calibration. After calibrating, retune the gains lower (see *Motor control gains*). The complete MITI settings, calibrated at 39.4 V:
+
+```yaml
+    wheel_base: 0.60              # effective track width, see Kinematics
+    motor_control_p_gain: 0.0002
+    motor_control_i_gain: 0.00002
+    motor_control_d_gain: 0.00002
+    ff_rpm_per_duty: 877.0
+    ff_static_duty: 0.0072
+    ff_turn_duty: 0.06
+    ff_calibration_voltage: 39.4
+    wheel_speed_filter: 0.5
+    low_speed_trust_rpm: 7.0
+    use_tachometer_speed: false
+```
+
+The MAX 130 settings, calibrated at 40.3 V without payload (*Hall Interpolation ERPM* 50 on every VESC):
+
+```yaml
+    wheel_radius: 0.155           # effective radius, see Kinematics
+    wheel_base: 0.90              # effective track width, see Kinematics
+    motor_control_p_gain: 0.0005
+    motor_control_i_gain: 0.0
+    motor_control_d_gain: 0.000025
+    ff_rpm_per_duty: 322.0
+    ff_static_duty: 0.021
+    ff_turn_duty: 0.0
+    ff_calibration_voltage: 40.3
+    ff_correction_decay: 1.0
+    ff_correction_release: true
+    low_speed_trust_rpm: 2.0
+```
+
+On the ground this drove 3.015 m on the tape for 3.0 m commanded, with odometry within 0.5%, pivots at 102% and arcs at 103% of the commanded turn rate.
 
 ### Diagnostics
 
@@ -221,22 +428,37 @@ The band applies in ``INDEPENDENT_WHEEL`` mode only. It does not act during an e
 | ``linear_covariance`` / ``yaw_covariance`` | Uncertainty published on the odometry **twist**, i.e. the measured velocity. |
 | ``pose_linear_covariance`` / ``pose_yaw_covariance`` | Uncertainty published on the odometry **pose**. The pose is dead reckoned from wheel rotation, so it drifts and these must not be zero. A fusion node reads an all-zero covariance as "no uncertainty" and will trust wheel odometry over every other sensor. |
 | ``robot_status_frequency`` | Publish rate for the robot status topic, in Hz. |
+
+### Battery
+
+| Parameter | Description |
+| --- | --- |
+| ``battery_cells`` | Cells in series in the battery pack: 10 on the Mini, MITI, MAX and MEGA (36 V nominal, 42 V full), 4 on the Zero. |
+| ``battery_max_cell_voltage`` | Cell voltage reported as 100%. Default ``4.2``. |
+| ``battery_min_cell_voltage`` | Cell voltage reported as 0%. Default ``3.4``: 34 V on the standard 10-cell (36 V nominal) pack, which leaves a small reserve above the battery protection cut-off. |
+| ``battery_voltage_multiplier`` | Correction for the voltage the motor controller reports, measured against a meter. ``1.025`` on the MITI, ``1.0`` elsewhere. |
+
+The percentage these produce is described under ``battery_status``.
+
+### Motor control gains
+
+| Parameter | Description |
+| --- | --- |
 | ``motor_control_p_gain`` | On the CAN robots the controller output is **added** to the previous duty every cycle, so this gain behaves as the integral term: it sets how quickly duty ramps toward the target and how small the steady-state speed error is. |
-| ``motor_control_i_gain`` | Leave at zero on the CAN robots. Because the output is accumulated, any value here acts as a double integrator. The remaining speed error (about 2% on the MITI) comes from a fixed 0.989 per-cycle decay on the accumulated duty. |
+| ``motor_control_i_gain`` | Because the output is accumulated, this acts as a double integrator. Keep it at zero unless feedforward is enabled; with feedforward the MITI uses a small value to remove the last steady-state error. Larger values cause overshoot. |
 | ``motor_control_d_gain`` | On the CAN robots this behaves as the proportional term, and provides the damping. Too low and the wheels overshoot and ring after a speed change; too high and turning in place goes unstable. |
 
-Retune the gains if you change ``motor_pole_pairs``, ``gear_ratio``, wheel size or motors. The controller's feedback is the measured wheel speed, so anything that changes that number changes the effective loop gain.
+Retune the gains if you change ``motor_pole_pairs``, ``gear_ratio``, wheel size, motors or the VESC *Hall Interpolation ERPM*. The controller's feedback is the measured wheel speed, so anything that changes that number changes the effective loop gain.
 
 Shipped gains, tuned on hardware:
 
 | Robot | ``p_gain`` | ``i_gain`` | ``d_gain`` | Notes |
 | --- | --- | --- | --- | --- |
 | Mini | 0.0008 | 0.0 | 0.00006 | Tuned on a Mini, Orin Nano, ROS 2 Jazzy |
-| MITI | 0.0007 | 0.0 | 0.00009 | |
-| MAX 130 | 0.0012 | 0.0 | 0.00006 | Tuned with a 50 to 70 lb payload |
-| MAX 150 | 0.0012 | 0.0 | 0.00006 | Same drivetrain as the MAX 130; verify on the first unit |
+| MITI | 0.0002 | 0.00002 | 0.00002 | With feedforward. Requires *Hall Interpolation ERPM* 50 on every VESC; see *Speed feedback at low speed* |
+| MAX 130 | 0.0005 | 0.0 | 0.000025 | With feedforward, tuned without payload. Without feedforward use 0.0012 / 0.0 / 0.00006 (tuned with a 50 to 70 lb payload) |
+| MAX 150 | 0.0012 | 0.0 | 0.00006 | PID only, no feedforward; same drivetrain as the MAX 130, verify on the first unit |
 | MEGA | 0.0012 | 0.0 | 0.000005 | |
-
 
 ### Control mode
 
@@ -355,6 +577,21 @@ Zeroes x, y and yaw without restarting the driver. Useful at the start of a meas
 
 The teleop ceiling comes from the controller config, not the driver. In ``ps4_controller_config.yaml`` and ``ps5_controller_config.yaml`` the ``scale`` entry sets the value at full stick deflection, so ``LEFT_JOY_VERT: scale: 1.25`` means full forward stick publishes ``linear.x = 1.25`` m/s, and ``RIGHT_JOY_HORIZ: scale: 2.5`` means full sideways stick publishes ``angular.z = 2.5`` rad/s. Raise or lower those to change the robot's top teleop speed.
 
+To change the teleop feel for one robot type without editing those shared files, add a ``joy_manager`` block to that robot's config; its ``*_teleop.launch.py`` passes it to the controller launch. The Rover Pro and the MAX use this. The MAX 130 block starts at 1.25 m/s and 1.25 rad/s at full stick, adds 0.3125 per D-pad press and stops at 1.875 on both axes:
+
+```yaml
+joy_manager:
+  ros__parameters:
+    start_lin_throttle: 1.0     # x the stick scale 1.25 = 1.25 m/s
+    lin_increment: 0.25
+    max_lin_speed: 1.875
+    start_ang_throttle: 0.5     # x the stick scale 2.5 = 1.25 rad/s
+    ang_increment: 0.125
+    max_ang_speed: 1.875
+```
+
+``max_lin_speed`` and ``max_ang_speed`` cap the published command, not the D-pad multiplier: pressing past the cap still raises the multiplier, so partial stick moves faster until the D-pad is pressed back down. ``max_teleop.launch.py`` reads the same config file as ``max.launch.py``; if you switch ``max.launch.py`` to ``max_130_config.yaml``, switch ``max_teleop.launch.py`` too.
+
 ### `rover_<robot_type>/battery_status` (`sensor_msgs/BatteryState`)
 
 | field | unit | notes |
@@ -363,6 +600,7 @@ The teleop ceiling comes from the controller config, not the driver. In ``ps4_co
 | ``current`` | amps | **not a battery current; do not use.** See the note below |
 | ``percentage`` | **percent, 0 to 100** | estimated from voltage; see the notes below |
 | ``present`` | bool | true whenever the driver has a live connection to the robot |
+| ``power_supply_status`` | enum | derived from the sign of ``current``; see the note below |
 
 ``header.stamp`` is set from the node clock on every publish.
 
@@ -370,9 +608,11 @@ The teleop ceiling comes from the controller config, not the driver. In ``ps4_co
 
 **``current`` does not measure the battery.** The robots have no pack current sensor. The value is the input current reported by one motor controller (the VESC with CAN ID 1, the only one that sends its input-current status), so it covers one of four motors and excludes the other three, the computer and accessories. It cannot detect charging: the only negative input current a VESC sees is its own motor regenerating while braking. In addition, the driver currently decodes this field incorrectly (as unsigned, with the wrong scale), so the published number is not meaningful. Until that is fixed, ignore ``current``.
 
-**``percentage`` is an estimate from voltage,** mapped linearly from 34 V (0%) to 42 V (100%) with no load compensation. It drops while the motors draw current and rises again at rest, so read it with the robot idle.
+**``percentage`` is an estimate from voltage,** mapped linearly from ``battery_min_cell_voltage`` to ``battery_max_cell_voltage`` times ``battery_cells`` after applying ``battery_voltage_multiplier`` (see *Battery*); on a 10-cell pack that is 34 V (0%) to 42 V (100%). There is no load compensation: it drops while the motors draw current and rises again at rest, so read it with the robot idle.
 
-Fields the VESCs do not report are left at their defaults: ``temperature``, ``charge``, ``capacity``, ``design_capacity``, ``power_supply_status``, ``power_supply_health``, ``power_supply_technology``, ``location``, ``cell_voltage`` and ``cell_temperature``.
+**``power_supply_status``** is FULL at 100%, CHARGING when ``current`` is below -0.1 A, DISCHARGING above 0.1 A and NOT_CHARGING otherwise. Because ``current`` is decoded without its sign (see *Known issues*), it does not report CHARGING today.
+
+Fields the VESCs do not report are left at their defaults: ``temperature``, ``charge``, ``capacity``, ``design_capacity``, ``power_supply_health``, ``power_supply_technology``, ``location``, ``cell_voltage`` and ``cell_temperature``.
 
 ### `rover_<robot_type>/serial_number` (`std_msgs/String`)
 
@@ -453,52 +693,134 @@ The 2wd_rover and 4wd_rover replace the Rover Zero and Rover Pro since they have
 Note: You have to install gazebo specifically for ROS. Our install script does not install gazebo. To install gazebo:
 ```sudo apt install ros-{DISTRO}-ros-gz```
 
-## Getting the Sensor Packages
-At rover we have several mainly used sensors that we use. The BNO055 IMU and RP Lidar S2 are our goto IMU and Lidar sensors. Our install script does not automatically install these packages as not everyone needs them. To install them, follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
+## Adding Sensors (IMU, LiDAR, GPS, Camera)
+
+Every sensor is added with the same five steps. Do them in order, and check each one before moving on:
+
+1. **Install its software.** Done by the install script if you said yes to that sensor.
+2. **Plug it in and check its name.** The install script gives each sensor a fixed name, such as ``/dev/bno055``, so it is found the same way after every reboot.
+3. **Switch it on** in ``accessories.yaml`` by changing ``active: false`` to ``active: true``.
+4. **Build and restart** (see *Step 4: Change a setting* above).
+5. **Check its data** with ``ros2 topic hz <topic>``. A number of messages per second means it works.
+
+All sensors are switched on in the same file:
+
 ```bash
-cd rover_workspace/src
-git clone https://github.com/flynneva/bno055.git
+nano ~/rover_workspace/src/roverrobotics_ros2/roverrobotics_driver/config/accessories.yaml
+```
+
+**If the IMU, the 2D LiDAR or the camera is switched on but unplugged or broken, the robot software stops and restarts every few seconds, and the robot will not drive.** This is deliberate, so a missing sensor is never silently ignored. To drive without it, set it back to ``active: false``, then build and restart.
+
+### BNO055 IMU
+
+The IMU measures how the robot turns and tilts. Navigation uses it to keep its heading accurate.
+
+1. **Software.** Say yes to the IMU in ``setup_rover.sh``, or run ``./setup_rover.sh --with-imu`` again. This installs a ``bno055`` package with a fix for a startup timing problem, and with the service it also clears the IMU's serial port before every start.
+2. **Plug it in and check its name:**
+   ```bash
+   ls -l /dev/bno055
+   ```
+   You should see a line ending in ``-> ttyUSB0`` (or another number). If you get *No such file or directory*, see *Sensor not found* below.
+3. **Switch it on.** In ``accessories.yaml``, under ``bno055:``, set:
+   ```yaml
+   bno055:
+     ros__parameters:
+       active: true
+       uart_port: "/dev/bno055"
+   ```
+4. **Build and restart.**
+5. **Check it:**
+   ```bash
+   ros2 topic hz /imu/data
+   ```
+   You should see about 100 messages per second. Turn the robot by hand and watch the turn rate with ``ros2 topic echo /imu/data --field angular_velocity``.
+
+The IMU's position on the robot is ``imu_link`` in the robot model (``roverrobotics_description/urdf/accessories/imu.urdf``). If you mount it somewhere else, update the position there.
+
+### RPLIDAR S2 (2D LiDAR)
+
+The 2D LiDAR measures distances all around the robot in one flat slice. Mapping (SLAM) and navigation use it to see walls and obstacles.
+
+1. **Software.** Say yes to the LiDAR in ``setup_rover.sh``, or run ``./setup_rover.sh --with-lidar`` again.
+2. **Plug it in and check its name:**
+   ```bash
+   ls -l /dev/rplidar
+   ```
+3. **Switch it on.** In ``accessories.yaml``, under ``rplidar:``, set:
+   ```yaml
+   rplidar:
+     ros__parameters:
+       active: true
+       serial_port: "/dev/rplidar"
+   ```
+4. **Build and restart.** The LiDAR starts spinning.
+5. **Check it:**
+   ```bash
+   ros2 topic hz /scan
+   ```
+   You should see about 10 scans per second (``scan_frequency`` in the same file).
+
+The LiDAR's position on the robot is ``lidar_link`` (``roverrobotics_description/urdf/accessories/rplidar_s2.urdf``).
+
+### SICK multiScan136 (3D LiDAR)
+
+The 3D LiDAR sees in 3D, not only in one flat slice. It connects over Ethernet rather than USB.
+
+1. **Software.** It is not installed by the install script. Build ``sick_scan_xd`` in your workspace by following [its instructions](https://github.com/SICKAG/sick_scan_xd) for ROS 2.
+2. **Network.** Connect it to the robot's Ethernet port and give the robot's port an address on the scanner's network (the scanner's default is ``192.168.0.1``).
+3. **Switch it on.** In ``accessories.yaml``, under ``multiscan:``, set ``active: true``, ``hostname`` to the scanner's address and ``udp_receiver_ip`` to the robot's own address on that network. Leave the other lines as they are.
+4. **Build and restart.**
+5. **Check it:**
+   ```bash
+   ros2 topic hz /sick/points
+   ```
+
+### GPS
+
+The robot model already has a GPS mounting point, ``gps_link`` (``roverrobotics_description/urdf/accessories/gps.urdf``), and the simulation publishes a simulated GPS position on ``/fix``. The install script's device rules also name a u-blox GPS receiver ``/dev/ublox-gps`` when it is plugged in, so you can check that the receiver is detected with ``ls -l /dev/ublox-gps``.
+
+On the real robot, a GPS receiver is **not** started by the robot software yet: there is no ``gps`` entry in ``accessories.yaml``. To use one today, install and start a ROS 2 driver for your receiver separately, and point it at ``/dev/ublox-gps`` with the frame ``gps_link``.
+
+### Intel RealSense camera
+
+The install script installs the camera software when you say yes to RealSense. There are two ways to run the camera; use **one** of them, not both:
+
+- **As its own service (recommended):** run ``./setup_rover.sh --with-rs-service``. The camera then starts at boot on its own and is restarted automatically if its frames stop. Leave ``realsense`` set to ``active: false`` in ``accessories.yaml``.
+- **With the robot software:** set ``realsense`` to ``active: true`` in ``accessories.yaml``, then build and restart.
+
+Check it with ``ros2 topic list | grep camera``. Plug the camera into a USB port on the computer itself, not the USB-C port used to flash a Jetson: that port does not work for devices.
+
+### Sensor not found
+
+If ``ls -l /dev/<name>`` says *No such file or directory*:
+
+1. Unplug the sensor and plug it back in, then try again.
+2. Run ``lsusb`` with the sensor plugged in and look for its line. If it is missing, the cable or the USB port is the problem.
+3. If it is listed, the device rules may be missing: re-run ``./setup_rover.sh`` (it installs them by default), then unplug and replug the sensor.
+4. Sensors from another manufacturer may have a different USB ID than the ones in the device rules. Find the ID with ``lsusb`` (the ``xxxx:yyyy`` after ``ID``) and add a line for it to ``udev/55-roverrobotics.rules`` in ``rover_install_scripts_ros2``, following the lines already there. Then install the rules:
+   ```bash
+   cd ~/rover_install_scripts_ros2/udev
+   sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   ```
+   If two sensors share the same ID, tell them apart with ``ATTRS{serial}=="..."`` (shown by ``lsusb -v``).
+
+### Installing the sensor software by hand
+
+Only needed if you did not use the install script:
+
+```bash
+cd ~/rover_workspace/src
+git clone -b fix-startup-race https://github.com/ssharma0704/bno055.git
 git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git
 cd ~/rover_workspace
-source /opt/ros/<rosdistro>/setup.bash
-colcon build --symlink-install
+source /opt/ros/${ROS_DISTRO}/setup.bash
+colcon build
 source install/setup.bash
 ```
-Note: This serves as a starting point for implementing indoor autonomous navigation using the specified sensors. Our goal is to provide a simple yet effective solution that can be extended and customized based on specific project requirements. 
 
-## Setting Up the Sensors
-### Configuring UDEV Rules
-**Note:** To follow the intructions mentioned below, you need to install the [rover_install_scripts_ros2](https://github.com/RoverRobotics/rover_install_scripts_ros2) or you can do it on your own from [scratch](https://linuxconfig.org/tutorial-on-how-to-write-basic-udev-rules-in-linux)
-
-Edit the ``55-roverrobotics.rules``, which can be found in the ``rover_install_scripts_ros2`` within ``udev`` folder.
-You can see that ``rplidar`` has been already set up under ``# Sensor Udev Rules``. Let's setup the ``bno055``.
-```bash
-KERNEL=="ttyUSB*", ATTRS{idVendor}=="<enter_the_vendor_id>", ATTRS{idProduct}=="<enter_the_product_id>", MODE:="0777", SYMLINK+="bno055"
-```
-Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/))
-
-```bash
-cd ~/rover_install_scripts_ros2/udev
-sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-Now, you should be able to see the ``bno055`` and ``rplidar`` in the list of your usb devices, using ``ls /dev``
-
-**Note:** If you have two devices with the same vendor and product ID, you can use ``ATTR{serial}`` to differentiate between the two devices. Use ``lsusb -v`` for the same.
-
-### Enabling and Setting Up the Ports of the Sensors
-Enable the ``rplidar`` and ``bno055`` within the ``accessories.yaml`` file, which can be found in the ``roverrobotics_driver`` package within the ``config`` folder.
-
-You can do this by setting the ``active`` parameter under ``ros__parameters`` of both the sensors as ``true``.
-
-In the same file ``accessories.yaml`` you can update the ``serial_port`` for ``rplidar`` as ``serial_port: "/dev/rplidar"`` and similarly for ``bno055``, ``uart_port: "/dev/bno055"``.
-
-Do not forget to perform a build of your workspace:
-```bash
-cd ~/rover_workspace
-colcon build
-```
+The ``bno055`` branch above is ``flynneva/bno055`` with the startup fix from its pull request 85.
 
 ## Robot Description Setup
 Our ROS2 packages now implement URDF setups for all Rover Robots! The ``roverrobotics_description`` package implements all of the URDF configs and launches. You can view a URDF using the following:
@@ -623,30 +945,62 @@ We also recommend these ROS2 tutorial playlists from [Articulated Robotics](http
 
 ## Release Notes — September 2026
 
-This release is a reliability and driving-quality update for every CAN robot (Mini, MITI, MAX and MEGA). It makes wheel speed and odometry correct, fixes a runaway-wheel defect, makes stops smooth and battery-safe, adds a controller emergency stop, and brings the Humble and Jazzy branches to the same driver code. Every change listed here was tested on hardware before release.
+This release is a reliability and driving-quality update for every CAN robot (Mini, MITI, MAX and MEGA). It makes wheel speed and odometry correct, fixes a runaway-wheel defect, makes stops smooth and battery-safe, adds a controller emergency stop and battery calibration, and brings the Humble and Jazzy branches to the same driver code. The MITI also gains accurate low-speed driving with feedforward wheel control. Every change listed here was tested on hardware before release.
 
 ### Highlights
 
-- **Smooth, battery-safe stopping.** A new braking band removes the jolt at the end of a stop and keeps regenerative braking within what the battery accepts, including from full speed.
 - **Correct speed and odometry on every robot.** Wheel speed was under-reported by 10% on the Mini and MITI and by 40% on the MAX and MEGA. It is now exact, and odometry measures true distance.
+- **Accurate, smooth low-speed driving on the MITI.** Low-speed wheel speed is now read correctly, and feedforward wheel control gives launches without overshoot, faster pivots and the quietest drive of all settings tested. See *MITI drive update* below.
+- **Smooth, battery-safe stopping.** A new braking band removes the jolt at the end of a stop and keeps regenerative braking within what the battery accepts, including from full speed.
 - **Emergency stop on the controller.** Circle stops the robot; Triangle resets it. Works on PS4 and PS5 controllers.
 - **Retuned motor control.** New PID gains for the Mini, MITI and MAX, tuned on hardware with the corrected speed feedback.
-- **One driver for Humble and Jazzy.** Both branches now carry identical driver code and configs.
+- **Battery percentage from a calibrated voltage,** configurable per pack, with 0% set above the battery protection cut-off.
+- **One driver for Humble and Jazzy.** Both branches carry identical driver code and configs.
+
+### MITI drive update
+
+These changes are opt-in per robot. They are enabled on the MITI, and can be enabled on other robots after the same calibration.
+
+- **Low-speed speed reading.** Below their *Hall Interpolation ERPM* setting (default 500) the VESCs reported about half the real wheel speed, so the MITI drove up to 2.2 times too fast at low speed and odometry came up 32% short. With the setting at 50, odometry is within 0.5% of a tape measure at 0.2 m/s. See *Speed feedback at low speed*.
+- **Feedforward wheel control** with battery-voltage compensation, a turn assist, a launch hold and low-speed handling. On the ground it held steady speed to about 1% of the command and launched with at most 2% overshoot. See *Feedforward and launch control*.
+- **Turn rates that match the command.** ``wheel_base`` is now the effective track width, 0.60 m, so pivots and arcs reach about 90% of the commanded rate (66% before) and wheel odometry yaw matches the IMU. See *Kinematics*.
+- **Required on every MITI:** set *Hall Interpolation ERPM* to 50 and enable CAN status 5 on each VESC in VESC Tool, then write the configuration. The new MITI gains are tuned for this setting.
+
+### MAX 130 drive update
+
+These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 150 and every other robot drive as before. All values were measured on a MAX 130 without payload.
+
+- **Calibrated geometry.** Effective wheel radius 0.155 and effective track width 0.90 m: the robot now drives 3.015 m on the tape for 3.0 m commanded, and pivots and arcs reach 98 to 103% of the commanded turn rate (53% and 49% before). See *Kinematics*.
+- **Feedforward with lower gains.** Calibrated at 40.3 V; steady speed at 100% of the command, with about half the duty ripple of the PID alone. See *Feedforward and launch control*.
+- **Arcs and pivots that hold their rate.** The PID correction no longer leaks away (``ff_correction_decay``), and a stale correction is cleared at once (``ff_correction_release``): no forward creep before a pivot and no speed dip after a turn.
+- **Firm, consistent stops.** ``brake_band_duty`` 0.20 with ``brake_momentum_carry``: every stop now follows the band, about 0.9 s from 2.2 m/s, where before some stops were soft (1.8 s) and others hard. See *Stopping and braking*.
+- **Gentle starts and turns.** ``max_linear_acceleration`` 1.5 and ``max_angular_acceleration`` 4.0: launch current fell from about 30 A to 16 A (median) and pivot-start current from 37 A to 21 A. Stops are unchanged. See *Velocity handling*.
+- **Controller limits.** Full stick gives 1.25 m/s and 1.25 rad/s, and the D-pad raises both to at most 1.875 in two presses. See ``/cmd_vel`` under *Published Topics and Units*.
+- **Required:** *Hall Interpolation ERPM* 50 on every VESC, and ``max.launch.py`` and ``max_teleop.launch.py`` both pointing at ``max_130_config.yaml``.
+- **Same on Jazzy.** The Jazzy branch carries identical MAX 130 code and settings, and was verified on a MAX 130 with an Orin Nano on JetPack 7: the same stand and ground results as on Humble.
 
 ### What's new
 
 - **Braking band** (``brake_band_duty``, ``brake_band_rpm``, ``rpm_per_duty``). Bounds how hard the wheel controller may brake a rolling wheel. Enabled on the MAX 130 and MAX 150; off by default elsewhere. See *Stopping and braking*.
+- **Feedforward** (``ff_rpm_per_duty``, ``ff_static_duty``, ``ff_turn_duty``, ``ff_calibration_voltage``, ``low_speed_trust_rpm``) and **speed smoothing for the PID** (``wheel_speed_filter``). Enabled on the MITI. See *Feedforward and launch control*.
+- **Tachometer speed source** (``use_tachometer_speed``), an optional fallback that reads wheel speed from the VESC tachometer (CAN status 5).
+- **Battery calibration** (``battery_cells``, ``battery_max_cell_voltage``, ``battery_min_cell_voltage``, ``battery_voltage_multiplier``) and ``power_supply_status`` on ``battery_status``. See *Battery*.
 - **Configurable rest release** (``rest_wheel_rpm``). The speed below which a stopped wheel is released, previously fixed in code.
 - **Optional release hold** (``release_hold_s``). Keeps the motors braked briefly after the wheels read zero; off by default.
 - **Controller emergency stop.** ``topics.yaml`` maps Circle to ``/soft_estop/trigger`` and Triangle to ``/soft_estop/reset``. The input manager gained a button-to-``std_msgs/Bool`` topic type to support it.
+- **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Per-wheel joint states.** ``/joint_states`` now publishes each wheel's angle and true angular velocity.
 - **Odometry reset.** Publish to ``/roverrobotics_driver/reset_odometry`` to zero the pose without restarting the driver.
 - **Unit serial number.** A new ``serial_number`` parameter is published once, latched, on ``rover_<robot_type>/serial_number``.
 - **Per-wheel trims** (``wheel_trim_fl`` / ``fr`` / ``rl`` / ``rr``) to balance a wheel that runs fast or slow.
 - **Pose covariance parameters** (``pose_linear_covariance``, ``pose_yaw_covariance``) so sensor-fusion nodes weight wheel odometry correctly.
 - **Command timeout and deceleration limit** (``cmd_vel_timeout_sec``, ``max_velocity_step``). The robot stops by itself if its velocity publisher goes quiet.
-- **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Controller speed overrides.** The PS5 launch accepts ``lin_increment``, ``ang_increment``, ``max_lin_speed``, ``max_ang_speed``, ``start_lin_throttle`` and ``start_ang_throttle`` so a robot can adjust its teleop feel without editing shared files.
+- **Feedforward correction options** (``ff_correction_decay``, ``ff_correction_release``). Enabled on the MAX 130. See *Feedforward and launch control*.
+- **Gentle start limits** (``max_linear_acceleration``, ``max_angular_acceleration``). Limit how fast forward speed and turn rate build up, without changing stops. Enabled on the MAX 130. See *Velocity handling*.
+- **Braking momentum carry** (``brake_momentum_carry``). Keeps a stop on the braking band when the robot is released while still speeding up. Enabled on the MAX 130. See *Stopping and braking*.
+- **Per-robot controller limits.** ``max_teleop.launch.py`` reads a ``joy_manager`` block from the MAX config, as ``pro_teleop.launch.py`` does for the Pro. See ``/cmd_vel`` under *Published Topics and Units*.
+- **Launch supervision.** Every robot launch ends when the driver or an accessory node exits, so the service restarts the whole stack cleanly instead of respawning one node in a half-working stack.
 
 ### Bug fixes
 
@@ -679,23 +1033,35 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 - **Stable CAN interface naming.** All CAN configs now use ``rovercan``, a fixed name given to the USB-CAN adapter by a udev rule, so the driver can no longer bind to an unused onboard CAN controller after a reboot.
 - **PS5 is the default controller** in every teleop launch. PS4 remains fully supported.
 - **Deceleration tuned on hardware.** ``max_velocity_step`` is 0.75 on every robot; the earlier 0.05 made the robot coast after the stick was released.
+- **Beginner guide.** *New here? Start with this* walks through installing, driving, everyday commands and changing a setting without prior ROS knowledge, and *Adding Sensors* gives step-by-step setup and checks for the BNO055 IMU, RPLIDAR S2, SICK multiScan136, GPS and RealSense.
 - **Clearer startup logging.** The driver logs its gear ratio, pole pairs, control mode, braking settings and serial number at startup, and warns about invalid settings.
 
 ### Changes to be aware of
 
 - **Retune custom gains.** Correcting the speed feedback changed the effective loop gain by about +11% on the Mini and MITI and +67% on the MAX and MEGA. Gains tuned against the old feedback should be retuned; the shipped gains already are.
+- **MITI: set *Hall Interpolation ERPM* to 50 before using the new gains.** Do not combine it with the previous MITI gains (P 0.0007, D 0.00009): on a stand they produced large current swings.
+- **MITI: ``wheel_base`` is now 0.60,** the effective track width rather than the 0.387 m between wheel centers. It depends on tyres and floor, so navigation should still fuse IMU yaw.
 - **MAX 6.5 inch and 10 inch variants are no longer supported.** Their configs and URDFs were removed. The MAX is supported with 13 inch and 15 inch wheels.
 - **``device_port`` is now ``rovercan``.** Manual installs must install the udev rule described under *Connection*.
-- **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script now sets; see *Troubleshooting*.
+- **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script sets; see *Troubleshooting*. The service also restarts the stack when a node exits: a manual ``ros2 launch`` now ends instead of respawning the driver.
 - **CAN robots now refuse to drive on stale feedback.** A motor controller that stops reporting brings the robot to a stop instead of letting it drive on.
+- **Battery percentage is now configurable per pack** (see *Battery*). With the defaults a 10-cell pack still reads 0% at 34 V and 100% at 42 V. The MITI applies a 1.025 correction to the reported voltage, measured against a meter, so it reads slightly higher than before at the same pack voltage.
+- **With the BNO055 enabled, use a ``bno055`` package with the startup-retry fix** (flynneva/bno055 pull request 85). Without it the IMU node can exit at boot before its serial port appears, and the stack restarts until the port is ready.
+- **MAX 130: new gains assume feedforward.** P 0.0005 / D 0.000025 are tuned together with the MAX 130 feedforward. If you turn feedforward off, go back to P 0.0012 / D 0.00006.
+- **MAX 130: the controller is slower by default.** Full stick is now 1.25 m/s and 1.25 rad/s (1.25 m/s and 2.5 rad/s before), with a ceiling of 1.875 on both.
 - **Stopping from 160 to 215 rpm takes 0.1 to 0.25 s longer on the MAX** with the braking band enabled, and stops from full speed take about 2.1 to 2.9 s. This is the cost of keeping regenerative braking within what the battery accepts.
 
 ### Known issues
 
 - An emergency stop at full speed brakes as hard as the motors allow and briefly raised the bus to about 55 V in testing. It is safe to use, but it should not be the routine way to stop at top speed.
-- ``battery_status.current`` is not a battery current and is currently mis-decoded; see the ``battery_status`` section. The robots have no pack current sensor, so charging cannot be detected.
-- On some JetPack 5 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
+- ``battery_status.current`` is not a battery current (see the ``battery_status`` section) and is decoded without its sign, so ``power_supply_status`` never reports CHARGING.
+- On some JetPack 6 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
+- Below about 0.07 m/s on the MITI the VESC speed reading is still unreliable (too few hall edges), so a small bump can remain when starting at a crawl.
+- Feedforward is calibrated for the MITI and the MAX 130 only. Other robots use the PID alone until calibrated.
+- The MAX 130 values were measured without payload. With a heavy payload, check the feedforward and the stop distance.
+- On the MAX 130, a hard turn while driving at 2.2 m/s or faster can still draw 40 to 50 A for a moment as the inner wheels are braked through zero. The controller limits keep the robot below that speed from the pad.
+- The controller's D-pad multiplier is not capped: pressing past ``max_lin_speed`` or ``max_ang_speed`` makes partial stick faster until the D-pad is pressed back down.
 
 ### Development timeline
 
@@ -709,3 +1075,9 @@ A dated record of the work in this release, for reference.
 | 2026-09-22 | Tuned the Mini's PID gains (P 0.0008, D 0.00006) and verified the PS5 controller over Bluetooth. Tuned the MAX 130 with a 50 to 70 lb payload across nine recorded runs (P 0.0012, D 0.00006). Identified that the remaining stop jolt was not caused by the gains. | Mini; MAX 130 |
 | 2026-09-23 | Traced the stop jolt to reverse duty sent to still-rolling wheels, and found that hard stops from high speed were tripping the battery protection. Built a simulator from recorded CAN data to evaluate fixes, rejected a first design that failed at speed, and developed the braking band. Added the controller emergency stop. | Stand tests and ground tests on the MAX 130 with payload |
 | 2026-09-24 | Traced intermittent loss of controller input to the Fast DDS shared-memory transport and moved the test robot to Cyclone DDS. Tested the emergency stop from speed. Finalised and cleaned up the driver code, applied the MAX 130 settings to the MAX 150, merged the release into the Humble and Jazzy branches, and updated this documentation. Verified the remaining open defects one by one on a stand and fixed them: brake on driver exit, ``estop_state`` at startup, the ``/soft_estop/status`` topic, stale-feedback stop, configuration crash loops, CAN interface errors, ``/robot_info`` requests, log flooding, the unused trim file and the VESC codec. | MAX 130 on a stand and on the ground |
+| 2026-09-25 | Traced the MITI's low-speed speed and odometry error to the VESC *Hall Interpolation ERPM* setting, confirmed with the VESC tachometer and by counting wheel revolutions, and set it to 50. Added the tachometer speed source. Measured the effective track width (``wheel_base`` 0.60). Developed feedforward with a turn assist, launch hold and low-speed handling, fixing each defect found on the stand, and calibrated it on the ground against true wheel speed. | MITI: odometry within 0.5% of tape at 0.2 m/s; pivots 91% and arcs 90% of commanded turn rate; launches at 0.3 and 0.6 m/s without overshoot |
+| 2026-09-28 | Compared feedforward against the PID alone, with low gains and with the previous MITI gains, on a stand and in 12 ground runs with the robot reset between runs; feedforward gave the steadiest drive and the smallest launch overshoot. Added battery-voltage compensation. Confirmed steady speed at about 101% of the command in a 10 s hold. | MITI: straight-line odometry −1.0% with feedforward, −1.2% with low gains, −8.7% with the previous gains; launch peak 102% |
+| 2026-09-29 | Added battery calibration, set 0% to 3.4 V per cell, and verified the release on two MITIs, including a cold power cycle. | Two MITIs |
+| 2026-09-29 | Calibrated the MAX 130 without payload: *Hall Interpolation ERPM* 50, effective wheel radius 0.155 and track width 0.90, and feedforward from stand and ground holds in both directions. | MAX 130: tape 3.015 m for 3.0 m commanded, odometry −0.5%; pivot 104%, arc 98% |
+| 2026-09-30 | Lowered the MAX 130 gains for feedforward and added ``ff_correction_decay``. Traced the forward creep before a pivot to a correction frozen by the launch hold and added ``ff_correction_release``. Traced inconsistent stops to the braking band handing a still-accelerating wheel to the PID; set ``brake_momentum_carry`` and ``brake_band_duty`` 0.20. Added the gentle start limits, then moved them from the measured speed to the command after a speed dip while weaving, and extended ``ff_correction_release`` to corrections left over from a turn. Added the MAX controller limits. Each change was tested on a stand and then in a recorded pad drive. | MAX 130: arc 103%, pivot 102%; forward drift before a pivot 0.16 → 0.08 m; 35 of 35 stops on the band; launch current median 31 → 16 A; weaving speed dip median 20% → 4%; pivot-start current median 37 → 21 A |
+| 2026-10-01 | Verified the MAX 130 drive update on ROS 2 Jazzy: stand speed sweep and pivot, ground speed hold with tape measure, pivots, arcs, forward-to-pivot, and two recorded controller drives, one with the commands logged. Added the beginner guide and the step-by-step sensor setup to this README. | MAX 130 on an Orin Nano, JetPack 7: stand 99.6 to 100.2% at 0.1 to 0.8 m/s; tape 3.02 m for 3.0 m commanded, odometry −0.5%; pivot 102%; arc 99%; stops after a quick stick release 0.46 to 0.86 s from up to 1.87 m/s; top speed held at the 1.875 m/s controller limit |
