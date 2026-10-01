@@ -24,6 +24,125 @@
   
   
 
+## New here? Start with this
+
+This section is for anyone who has never used ROS. It takes you from a fresh computer to a driving robot, and shows where everything lives. You do not need to read the rest of this page to get started.
+
+### What you need
+
+- A Rover robot (Mini, MITI, MAX, MEGA, Pro or Zero).
+- One computer that runs ROS and drives the robot, connected to it (for example an NVIDIA Jetson mounted on the robot). It must run **Ubuntu 24.04** for the ``jazzy`` branch or **Ubuntu 22.04** for the ``humble`` branch (on a Jetson: JetPack 7 or JetPack 6). The install script picks the right branch for you. The robot does not include a computer.
+- An internet connection on that computer, and a keyboard and screen or an SSH connection to it.
+- A PS5 or PS4 controller to drive with.
+
+### ROS words in plain English
+
+You will see these words below and in the rest of this page:
+
+| Word | What it means here |
+| --- | --- |
+| **ROS 2** | The software framework the robot runs on. It is installed for you. |
+| **Workspace** | The folder that holds the robot's software: ``~/rover_workspace``. |
+| **Package** | One folder of related software inside the workspace, for example the driver. |
+| **Config file** | A text file (``.yaml``) with settings you can edit, such as top speed or which sensors are on. |
+| **Build** | Turning the source files into the version the robot runs. Needed after you edit a config file. |
+| **Launch file** | A file that starts several programs together, for example the driver plus the controller. |
+| **Topic** | A named stream of data, such as ``/imu/data`` for the IMU or ``/scan`` for the LiDAR. |
+| **Service** | ``roverrobotics.service``: starts the robot software automatically every time the computer boots. |
+
+### Step 1: Install everything
+
+The install script does all the work. On the computer connected to the robot, open a terminal and run:
+
+```bash
+git clone https://github.com/RoverRobotics/rover_install_scripts_ros2
+cd rover_install_scripts_ros2
+./setup_rover.sh
+```
+
+It asks a few questions. Good answers for a first install:
+
+- **Robot:** pick your robot. A MAX also asks for its wheel size (13 or 15 inch).
+- **Controller:** PS5 or PS4, whichever you have.
+- **Start at boot (service):** yes. The robot is then ready to drive every time it powers on.
+- **IMU (BNO055)** and **LiDAR (RPLIDAR S2):** say yes if your robot has them. This installs their software; you switch them on in Step 5.
+- **RealSense camera:** yes if your robot has one.
+
+The install takes from about 15 minutes to an hour, depending on the computer and the options. Progress is shown on screen and saved to ``~/rover_setup.log``. Reboot when it finishes.
+
+### Step 2: Drive
+
+1. **Put the robot on a stand with the wheels off the ground for your first test.**
+2. Pair the controller once: on the computer run ``bluetoothctl``, then ``scan on``, hold the controller's pairing buttons (PS5: Create + PS; PS4: Share + PS) until it flashes, then ``pair <address>``, ``trust <address>``, ``connect <address>`` and ``exit``.
+3. Drive with the left stick (forward and back) and the right stick (turning).
+4. **Circle (○) is the emergency stop. Triangle (△) releases it.** Try both before driving on the ground.
+
+All buttons are listed under *Controller buttons* below.
+
+### Step 3: Everyday commands
+
+Open a terminal on the computer and use these:
+
+| To do this | Run |
+| --- | --- |
+| See whether the robot software is running | ``systemctl status roverrobotics`` |
+| Restart it (after a settings change, or if it misbehaves) | ``sudo systemctl restart roverrobotics`` |
+| Stop it | ``sudo systemctl stop roverrobotics`` |
+| Start it again | ``sudo systemctl start roverrobotics`` |
+| Watch its messages live (Ctrl+C to quit) | ``journalctl -u roverrobotics -f`` |
+| List all data streams (topics) | ``ros2 topic list`` |
+| Check that a stream is updating, and how fast | ``ros2 topic hz /odometry/wheels`` |
+| Print the data of a stream | ``ros2 topic echo /odometry/wheels`` (Tab completes names) |
+
+If you did not install the service, start the robot by hand instead, and keep that terminal open while you drive:
+
+```bash
+ros2 launch roverrobotics_driver <robot>_teleop.launch.py
+```
+
+Replace ``<robot>`` with ``mini``, ``miti``, ``max``, ``mega``, ``pro``, ``zero``, ``mini_2wd`` or ``miti_65``.
+
+### Step 4: Change a setting
+
+Every setting lives in a config file in the driver package. The general recipe is always the same:
+
+1. **Edit** the file, for example with ``nano``:
+   ```bash
+   nano ~/rover_workspace/src/roverrobotics_ros2/roverrobotics_driver/config/accessories.yaml
+   ```
+   Save with Ctrl+O and Enter, quit with Ctrl+X. Keep the indentation (spaces at the start of lines) exactly as it is.
+2. **Build**, so the robot uses the edited file:
+   ```bash
+   cd ~/rover_workspace
+   colcon build
+   ```
+3. **Restart** the robot software:
+   ```bash
+   sudo systemctl restart roverrobotics
+   ```
+
+Edits in ``~/rover_workspace/src`` do nothing until you build. If a change seems to have no effect, you probably skipped the build.
+
+### Step 5: Turn on your sensors
+
+The IMU, LiDARs and camera are all switched on in one file, ``accessories.yaml``. Each one has its own short guide under *Adding Sensors* below, written for beginners.
+
+### Where things are
+
+Everything is inside ``~/rover_workspace/src/roverrobotics_ros2``:
+
+| Folder or file | What it holds | Do you edit it? |
+| --- | --- | --- |
+| ``roverrobotics_driver/config/<robot>_config.yaml`` | Your robot's settings: speed limits, wheel size, motor control | Sometimes |
+| ``roverrobotics_driver/config/accessories.yaml`` | Which sensors are on, and their settings | Yes, to add sensors |
+| ``roverrobotics_driver/config/topics.yaml`` | What each controller button does | Rarely |
+| ``roverrobotics_driver/launch/`` | Launch files that start the robot (``max.launch.py``, ``max_teleop.launch.py`` and so on) | Rarely |
+| ``roverrobotics_description/urdf/`` | The 3D model of each robot and where each sensor is mounted | Only if you move a sensor |
+| ``roverrobotics_driver/src`` and ``library/`` | The driver's source code | No |
+| ``roverrobotics_gazebo/`` | Simulation | Only for simulation |
+
+The MAX has one config per wheel size: ``max_130_config.yaml`` for 13 inch wheels and ``max_150_config.yaml`` for 15 inch. The install script points the MAX launch files at the right one.
+
 ## Installation:
 
 Installation is made simple through two options:
@@ -574,52 +693,134 @@ The 2wd_rover and 4wd_rover replace the Rover Zero and Rover Pro since they have
 Note: You have to install gazebo specifically for ROS. Our install script does not install gazebo. To install gazebo:
 ```sudo apt install ros-{DISTRO}-ros-gz```
 
-## Getting the Sensor Packages
-At rover we have several mainly used sensors that we use. The BNO055 IMU and RP Lidar S2 are our goto IMU and Lidar sensors. Our install script does not automatically install these packages as not everyone needs them. To install them, follow the steps mentioned below to download the packages for BNO055 IMU and Slamtec RPLIDAR S2:
+## Adding Sensors (IMU, LiDAR, GPS, Camera)
+
+Every sensor is added with the same five steps. Do them in order, and check each one before moving on:
+
+1. **Install its software.** Done by the install script if you said yes to that sensor.
+2. **Plug it in and check its name.** The install script gives each sensor a fixed name, such as ``/dev/bno055``, so it is found the same way after every reboot.
+3. **Switch it on** in ``accessories.yaml`` by changing ``active: false`` to ``active: true``.
+4. **Build and restart** (see *Step 4: Change a setting* above).
+5. **Check its data** with ``ros2 topic hz <topic>``. A number of messages per second means it works.
+
+All sensors are switched on in the same file:
+
 ```bash
-cd rover_workspace/src
-git clone https://github.com/flynneva/bno055.git
+nano ~/rover_workspace/src/roverrobotics_ros2/roverrobotics_driver/config/accessories.yaml
+```
+
+**If the IMU, the 2D LiDAR or the camera is switched on but unplugged or broken, the robot software stops and restarts every few seconds, and the robot will not drive.** This is deliberate, so a missing sensor is never silently ignored. To drive without it, set it back to ``active: false``, then build and restart.
+
+### BNO055 IMU
+
+The IMU measures how the robot turns and tilts. Navigation uses it to keep its heading accurate.
+
+1. **Software.** Say yes to the IMU in ``setup_rover.sh``, or run ``./setup_rover.sh --with-imu`` again. This installs a ``bno055`` package with a fix for a startup timing problem, and with the service it also clears the IMU's serial port before every start.
+2. **Plug it in and check its name:**
+   ```bash
+   ls -l /dev/bno055
+   ```
+   You should see a line ending in ``-> ttyUSB0`` (or another number). If you get *No such file or directory*, see *Sensor not found* below.
+3. **Switch it on.** In ``accessories.yaml``, under ``bno055:``, set:
+   ```yaml
+   bno055:
+     ros__parameters:
+       active: true
+       uart_port: "/dev/bno055"
+   ```
+4. **Build and restart.**
+5. **Check it:**
+   ```bash
+   ros2 topic hz /imu/data
+   ```
+   You should see about 100 messages per second. Turn the robot by hand and watch the turn rate with ``ros2 topic echo /imu/data --field angular_velocity``.
+
+The IMU's position on the robot is ``imu_link`` in the robot model (``roverrobotics_description/urdf/accessories/imu.urdf``). If you mount it somewhere else, update the position there.
+
+### RPLIDAR S2 (2D LiDAR)
+
+The 2D LiDAR measures distances all around the robot in one flat slice. Mapping (SLAM) and navigation use it to see walls and obstacles.
+
+1. **Software.** Say yes to the LiDAR in ``setup_rover.sh``, or run ``./setup_rover.sh --with-lidar`` again.
+2. **Plug it in and check its name:**
+   ```bash
+   ls -l /dev/rplidar
+   ```
+3. **Switch it on.** In ``accessories.yaml``, under ``rplidar:``, set:
+   ```yaml
+   rplidar:
+     ros__parameters:
+       active: true
+       serial_port: "/dev/rplidar"
+   ```
+4. **Build and restart.** The LiDAR starts spinning.
+5. **Check it:**
+   ```bash
+   ros2 topic hz /scan
+   ```
+   You should see about 10 scans per second (``scan_frequency`` in the same file).
+
+The LiDAR's position on the robot is ``lidar_link`` (``roverrobotics_description/urdf/accessories/rplidar_s2.urdf``).
+
+### SICK multiScan136 (3D LiDAR)
+
+The 3D LiDAR sees in 3D, not only in one flat slice. It connects over Ethernet rather than USB.
+
+1. **Software.** It is not installed by the install script. Build ``sick_scan_xd`` in your workspace by following [its instructions](https://github.com/SICKAG/sick_scan_xd) for ROS 2.
+2. **Network.** Connect it to the robot's Ethernet port and give the robot's port an address on the scanner's network (the scanner's default is ``192.168.0.1``).
+3. **Switch it on.** In ``accessories.yaml``, under ``multiscan:``, set ``active: true``, ``hostname`` to the scanner's address and ``udp_receiver_ip`` to the robot's own address on that network. Leave the other lines as they are.
+4. **Build and restart.**
+5. **Check it:**
+   ```bash
+   ros2 topic hz /sick/points
+   ```
+
+### GPS
+
+The robot model already has a GPS mounting point, ``gps_link`` (``roverrobotics_description/urdf/accessories/gps.urdf``), and the simulation publishes a simulated GPS position on ``/fix``. The install script's device rules also name a u-blox GPS receiver ``/dev/ublox-gps`` when it is plugged in, so you can check that the receiver is detected with ``ls -l /dev/ublox-gps``.
+
+On the real robot, a GPS receiver is **not** started by the robot software yet: there is no ``gps`` entry in ``accessories.yaml``. To use one today, install and start a ROS 2 driver for your receiver separately, and point it at ``/dev/ublox-gps`` with the frame ``gps_link``.
+
+### Intel RealSense camera
+
+The install script installs the camera software when you say yes to RealSense. There are two ways to run the camera; use **one** of them, not both:
+
+- **As its own service (recommended):** run ``./setup_rover.sh --with-rs-service``. The camera then starts at boot on its own and is restarted automatically if its frames stop. Leave ``realsense`` set to ``active: false`` in ``accessories.yaml``.
+- **With the robot software:** set ``realsense`` to ``active: true`` in ``accessories.yaml``, then build and restart.
+
+Check it with ``ros2 topic list | grep camera``. Plug the camera into a USB port on the computer itself, not the USB-C port used to flash a Jetson: that port does not work for devices.
+
+### Sensor not found
+
+If ``ls -l /dev/<name>`` says *No such file or directory*:
+
+1. Unplug the sensor and plug it back in, then try again.
+2. Run ``lsusb`` with the sensor plugged in and look for its line. If it is missing, the cable or the USB port is the problem.
+3. If it is listed, the device rules may be missing: re-run ``./setup_rover.sh`` (it installs them by default), then unplug and replug the sensor.
+4. Sensors from another manufacturer may have a different USB ID than the ones in the device rules. Find the ID with ``lsusb`` (the ``xxxx:yyyy`` after ``ID``) and add a line for it to ``udev/55-roverrobotics.rules`` in ``rover_install_scripts_ros2``, following the lines already there. Then install the rules:
+   ```bash
+   cd ~/rover_install_scripts_ros2/udev
+   sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
+   sudo udevadm control --reload-rules
+   sudo udevadm trigger
+   ```
+   If two sensors share the same ID, tell them apart with ``ATTRS{serial}=="..."`` (shown by ``lsusb -v``).
+
+### Installing the sensor software by hand
+
+Only needed if you did not use the install script:
+
+```bash
+cd ~/rover_workspace/src
+git clone -b fix-startup-race https://github.com/ssharma0704/bno055.git
 git clone -b ros2 https://github.com/Slamtec/rplidar_ros.git
 cd ~/rover_workspace
-source /opt/ros/<rosdistro>/setup.bash
-colcon build --symlink-install
+source /opt/ros/${ROS_DISTRO}/setup.bash
+colcon build
 source install/setup.bash
 ```
-Note: This serves as a starting point for implementing indoor autonomous navigation using the specified sensors. Our goal is to provide a simple yet effective solution that can be extended and customized based on specific project requirements. 
 
-## Setting Up the Sensors
-### Configuring UDEV Rules
-**Note:** To follow the intructions mentioned below, you need to install the [rover_install_scripts_ros2](https://github.com/RoverRobotics/rover_install_scripts_ros2) or you can do it on your own from [scratch](https://linuxconfig.org/tutorial-on-how-to-write-basic-udev-rules-in-linux)
-
-Edit the ``55-roverrobotics.rules``, which can be found in the ``rover_install_scripts_ros2`` within ``udev`` folder.
-You can see that ``rplidar`` has been already set up under ``# Sensor Udev Rules``. Let's setup the ``bno055``.
-```bash
-KERNEL=="ttyUSB*", ATTRS{idVendor}=="<enter_the_vendor_id>", ATTRS{idProduct}=="<enter_the_product_id>", MODE:="0777", SYMLINK+="bno055"
-```
-Copy the line mentioned above under ``# Sensor Udev Rules`` and enter the vendor and product ID of your sensors using ``lsusb``. (Refer [lsusb](https://linuxhint.com/use_lsusb_command/))
-
-```bash
-cd ~/rover_install_scripts_ros2/udev
-sudo cp 55-roverrobotics.rules /etc/udev/rules.d/55-roverrobotics.rules
-sudo udevadm control --reload-rules
-sudo udevadm trigger
-```
-Now, you should be able to see the ``bno055`` and ``rplidar`` in the list of your usb devices, using ``ls /dev``
-
-**Note:** If you have two devices with the same vendor and product ID, you can use ``ATTR{serial}`` to differentiate between the two devices. Use ``lsusb -v`` for the same.
-
-### Enabling and Setting Up the Ports of the Sensors
-Enable the ``rplidar`` and ``bno055`` within the ``accessories.yaml`` file, which can be found in the ``roverrobotics_driver`` package within the ``config`` folder.
-
-You can do this by setting the ``active`` parameter under ``ros__parameters`` of both the sensors as ``true``.
-
-In the same file ``accessories.yaml`` you can update the ``serial_port`` for ``rplidar`` as ``serial_port: "/dev/rplidar"`` and similarly for ``bno055``, ``uart_port: "/dev/bno055"``.
-
-Do not forget to perform a build of your workspace:
-```bash
-cd ~/rover_workspace
-colcon build
-```
+The ``bno055`` branch above is ``flynneva/bno055`` with the startup fix from its pull request 85.
 
 ## Robot Description Setup
 Our ROS2 packages now implement URDF setups for all Rover Robots! The ``roverrobotics_description`` package implements all of the URDF configs and launches. You can view a URDF using the following:
@@ -776,6 +977,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Gentle starts and turns.** ``max_linear_acceleration`` 1.5 and ``max_angular_acceleration`` 4.0: launch current fell from about 30 A to 16 A (median) and pivot-start current from 37 A to 21 A. Stops are unchanged. See *Velocity handling*.
 - **Controller limits.** Full stick gives 1.25 m/s and 1.25 rad/s, and the D-pad raises both to at most 1.875 in two presses. See ``/cmd_vel`` under *Published Topics and Units*.
 - **Required:** *Hall Interpolation ERPM* 50 on every VESC, and ``max.launch.py`` and ``max_teleop.launch.py`` both pointing at ``max_130_config.yaml``.
+- **Same on Jazzy.** The Jazzy branch carries identical MAX 130 code and settings, and was verified on a MAX 130 with an Orin Nano on JetPack 7: the same stand and ground results as on Humble.
 
 ### What's new
 
@@ -831,6 +1033,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Stable CAN interface naming.** All CAN configs now use ``rovercan``, a fixed name given to the USB-CAN adapter by a udev rule, so the driver can no longer bind to an unused onboard CAN controller after a reboot.
 - **PS5 is the default controller** in every teleop launch. PS4 remains fully supported.
 - **Deceleration tuned on hardware.** ``max_velocity_step`` is 0.75 on every robot; the earlier 0.05 made the robot coast after the stick was released.
+- **Beginner guide.** *New here? Start with this* walks through installing, driving, everyday commands and changing a setting without prior ROS knowledge, and *Adding Sensors* gives step-by-step setup and checks for the BNO055 IMU, RPLIDAR S2, SICK multiScan136, GPS and RealSense.
 - **Clearer startup logging.** The driver logs its gear ratio, pole pairs, control mode, braking settings and serial number at startup, and warns about invalid settings.
 
 ### Changes to be aware of
@@ -877,3 +1080,4 @@ A dated record of the work in this release, for reference.
 | 2026-09-29 | Added battery calibration, set 0% to 3.4 V per cell, and verified the release on two MITIs, including a cold power cycle. | Two MITIs |
 | 2026-09-29 | Calibrated the MAX 130 without payload: *Hall Interpolation ERPM* 50, effective wheel radius 0.155 and track width 0.90, and feedforward from stand and ground holds in both directions. | MAX 130: tape 3.015 m for 3.0 m commanded, odometry −0.5%; pivot 104%, arc 98% |
 | 2026-09-30 | Lowered the MAX 130 gains for feedforward and added ``ff_correction_decay``. Traced the forward creep before a pivot to a correction frozen by the launch hold and added ``ff_correction_release``. Traced inconsistent stops to the braking band handing a still-accelerating wheel to the PID; set ``brake_momentum_carry`` and ``brake_band_duty`` 0.20. Added the gentle start limits, then moved them from the measured speed to the command after a speed dip while weaving, and extended ``ff_correction_release`` to corrections left over from a turn. Added the MAX controller limits. Each change was tested on a stand and then in a recorded pad drive. | MAX 130: arc 103%, pivot 102%; forward drift before a pivot 0.16 → 0.08 m; 35 of 35 stops on the band; launch current median 31 → 16 A; weaving speed dip median 20% → 4%; pivot-start current median 37 → 21 A |
+| 2026-10-01 | Verified the MAX 130 drive update on ROS 2 Jazzy: stand speed sweep and pivot, ground speed hold with tape measure, pivots, arcs, forward-to-pivot, and two recorded controller drives, one with the commands logged. Added the beginner guide and the step-by-step sensor setup to this README. | MAX 130 on an Orin Nano, JetPack 7: stand 99.6 to 100.2% at 0.1 to 0.8 m/s; tape 3.02 m for 3.0 m commanded, odometry −0.5%; pivot 102%; arc 99%; stops after a quick stick release 0.46 to 0.86 s from up to 1.87 m/s; top speed held at the 1.875 m/s controller limit |
