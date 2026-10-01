@@ -66,15 +66,20 @@ namespace vesc {
             float voltage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
             currentVoltage_ = ((float)voltage_scaled) * VOLTAGE_SCALING_FACTOR;
 
-            return (vescChannelStatus){
-                .vescId = 0, 
-                .current = 0, 
-                .rpm = 0, 
+            vescChannelStatus tach = {
+                .vescId = vescId,
+                .current = 0,
+                .rpm = 0,
                 .erpm = 0,
-                .duty = 0, 
+                .duty = 0,
                 .voltage = 0,
-                .current_in = 0, 
+                .current_in = 0,
                 .dataValid = false};
+            tach.tachometer = static_cast<int32_t>(
+                (static_cast<uint32_t>(robotmsg[5]) << 24) | (static_cast<uint32_t>(robotmsg[6]) << 16) |
+                (static_cast<uint32_t>(robotmsg[7]) << 8) | static_cast<uint32_t>(robotmsg[8]));
+            tach.tachValid = true;
+            return tach;
         }
 
         /* unhandled command id */

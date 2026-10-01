@@ -3,6 +3,7 @@
 #include "vesc.hpp"
 #include "utilities.hpp"
 #include <atomic>
+#include <deque>
 
 // Zero ID's
 #define LEFT_MOTOR 1
@@ -67,6 +68,18 @@ class RoverRobotics::DifferentialRobot
    * @param bool accept a estop state
    */
   void send_estop(bool) override;
+  /* feedforward + PID feedback smoothing; see SkidRobotMotionController */
+  void setDriveTuning(float ff_rpm_per_duty, float ff_static_duty,
+                      float ff_turn_duty, float wheel_speed_filter);
+  /* wheel speed from the status-5 tachometer instead of the status-1 eRPM estimate */
+  void setUseTachometer(bool use);
+  void setLowSpeedTrust(float rpm);
+  void setFeedforwardVoltage(float calibration_voltage);
+  void setFeedforwardCorrectionDecay(float decay);
+  void setFeedforwardCorrectionRelease(bool enable);
+  void setLinearAccelerationUp(float accel);
+  void setAngularAccelerationUp(float accel);
+  void setBrakeMomentumCarry(bool enable);
   /*
    * @brief Request Robot Status
    * @return structure of statusData
@@ -171,6 +184,16 @@ class RoverRobotics::DifferentialRobot
   /* last status frame per VESC; a wheel whose feedback goes silent stops the robot */
   std::chrono::steady_clock::time_point status_ts_[5];
   const int STATUS_STALE_MS_ = 250;
+  /* tachometer speed: window grows until TACH_MIN_STEPS_ steps or TACH_MAX_WINDOW_S_ */
+  std::atomic<bool> use_tach_{false};
+  std::deque<std::pair<std::chrono::steady_clock::time_point, int32_t>> tach_hist_[5];
+  std::chrono::steady_clock::time_point tach_ts_[5];
+  const float TACH_STEPS_PER_EREV_ = 6.0f;
+  const int TACH_MIN_STEPS_ = 12;
+  const float TACH_MIN_WINDOW_S_ = 0.04f;
+  const float TACH_MAX_WINDOW_S_ = 0.3f;
+  const int TACH_STALE_MS_ = 200;
+  float tachRpm_(int vid, std::chrono::steady_clock::time_point now, int32_t tach);
 
   /* keep SET_DUTY 0 this long after the wheels read still before SET_CURRENT 0; 0 = release at once */
   float release_hold_s_ = 0.0f;

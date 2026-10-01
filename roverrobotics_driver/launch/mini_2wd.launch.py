@@ -3,7 +3,7 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, Shutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import Command, LaunchConfiguration
 from launch_ros.actions import Node
@@ -31,8 +31,7 @@ def generate_launch_description():
         executable = 'roverrobotics_driver',
         parameters = [hardware_config],
         output='screen',
-        respawn=True,
-        respawn_delay=1
+        on_exit=Shutdown()
     )
 
     accessories_launch = IncludeLaunchDescription(
