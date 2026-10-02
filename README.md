@@ -75,7 +75,7 @@ The install takes from about 15 minutes to an hour, depending on the computer an
 1. **Put the robot on a stand with the wheels off the ground for your first test.**
 2. Pair the controller once: on the computer run ``bluetoothctl``, then ``scan on``, hold the controller's pairing buttons (PS5: Create + PS; PS4: Share + PS) until it flashes, then ``pair <address>``, ``trust <address>``, ``connect <address>`` and ``exit``.
 3. Drive with the left stick (forward and back) and the right stick (turning).
-4. **Circle (○) is the emergency stop. Triangle (△) releases it.** Try both before driving on the ground.
+4. **Cross (✕) is the emergency stop. Circle (○) releases it.** Try both before driving on the ground.
 
 All buttons are listed under *Controller buttons* below.
 
@@ -231,10 +231,10 @@ The teleop launch files use ``ps5_controller.launch.py`` by default. To use a PS
 | Right stick, horizontal | Turn rate |
 | D-pad up / down | Raise / lower the linear speed scale |
 | D-pad left / right | Raise / lower the turn speed scale |
-| **Circle (○)** | **Software emergency stop.** Latches the robot stopped until reset. |
-| **Triangle (△)** | **Reset the emergency stop.** The robot resumes on the next stick input. |
+| **Cross (✕)** | **Software emergency stop.** Latches the robot stopped until reset. |
+| **Circle (○)** | **Reset the emergency stop.** The robot resumes on the next stick input. |
 
-The estop buttons work on both the PS4 and the PS5 controller. They are defined in ``config/topics.yaml`` by button name (``B`` for Circle, ``Y`` for Triangle), and every controller config maps those names to the correct physical buttons for its kernel driver, so no per-controller change is needed. A single press sends a single message; holding the button does not repeat it.
+The estop buttons work on both the PS4 and the PS5 controller. They are defined in ``config/topics.yaml`` by button name (``A`` for Cross, ``B`` for Circle), and every controller config maps those names to the correct physical buttons for its kernel driver, so no per-controller change is needed. A single press sends a single message; holding the button does not repeat it.
 
 
 ## Driver Configuration
@@ -499,7 +499,7 @@ Every shipped config lists these keys explicitly with their values, so each robo
 
 **How the emergency stop behaves.** When the trigger arrives, the next control cycle (30 ms) sends a duty of zero to every VESC, which short-circuits the motors and brakes as hard as they allow. Stick and ``cmd_vel`` input is ignored while the stop is latched. The wheel controller's accumulated duty, PIDs and braking state are cleared, so when the stop is reset the robot resumes from rest with no jump; it moves again only when a new, non-zero command arrives.
 
-From the controller, press **Circle (○)** to stop and **Triangle (△)** to reset. From a terminal:
+From the controller, press **Cross (✕)** to stop and **Circle (○)** to reset. From a terminal:
 
 ```bash
 ros2 topic pub --once /soft_estop/trigger std_msgs/msg/Bool "{data: true}"
@@ -597,20 +597,20 @@ joy_manager:
 | field | unit | notes |
 | --- | --- | --- |
 | ``voltage`` | volts | bus voltage measured at the motor controller |
-| ``current`` | amps | **not a battery current; do not use.** See the note below |
+| ``current`` | amps | input current of one motor controller, **not the battery current**; see the note below |
 | ``percentage`` | **percent, 0 to 100** | estimated from voltage; see the notes below |
 | ``present`` | bool | true whenever the driver has a live connection to the robot |
-| ``power_supply_status`` | enum | derived from the sign of ``current``; see the note below |
+| ``power_supply_status`` | enum | UNKNOWN on the CAN robots; see the note below |
 
 ``header.stamp`` is set from the node clock on every publish.
 
 **``percentage`` is deliberately 0 to 100, not the 0 to 1 that the message definition specifies.** Rover Robotics publishes the state of charge directly because it is what customers already read and it is easier to interpret in a terminal. A generic battery widget that assumes the ROS convention will therefore read it 100 times too high. Divide by 100 if you are feeding a tool that expects the standard range.
 
-**``current`` does not measure the battery.** The robots have no pack current sensor. The value is the input current reported by one motor controller (the VESC with CAN ID 1, the only one that sends its input-current status), so it covers one of four motors and excludes the other three, the computer and accessories. It cannot detect charging: the only negative input current a VESC sees is its own motor regenerating while braking. In addition, the driver currently decodes this field incorrectly (as unsigned, with the wrong scale), so the published number is not meaningful. Until that is fixed, ignore ``current``.
+**``current`` does not measure the battery.** The robots have no battery current sensor. The value is the input current reported by one motor controller (the VESC with CAN ID 1, the only one that sends its input-current status), so it covers one of four motors and excludes the other three, the computer and accessories. It is positive while that motor drives and negative while it regenerates during braking. Use it as a rough indication of that motor's load, not of the battery.
 
 **``percentage`` is an estimate from voltage,** mapped linearly from ``battery_min_cell_voltage`` to ``battery_max_cell_voltage`` times ``battery_cells`` after applying ``battery_voltage_multiplier`` (see *Battery*); on a 10-cell pack that is 34 V (0%) to 42 V (100%). There is no load compensation: it drops while the motors draw current and rises again at rest, so read it with the robot idle.
 
-**``power_supply_status``** is FULL at 100%, CHARGING when ``current`` is below -0.1 A, DISCHARGING above 0.1 A and NOT_CHARGING otherwise. Because ``current`` is decoded without its sign (see *Known issues*), it does not report CHARGING today.
+**``power_supply_status``** is UNKNOWN on the CAN robots (Mini, MITI, MAX and MEGA). Detecting charging needs a current sensor on the battery, which these robots do not have: a charger connected to the battery never passes through a motor controller, and the only negative current a motor controller sees is its own motor regenerating. On the Rover Pro, whose battery board reports the pack current, it is FULL at 100%, CHARGING when ``current`` is below -0.1 A, DISCHARGING above 0.1 A and NOT_CHARGING otherwise.
 
 Fields the VESCs do not report are left at their defaults: ``temperature``, ``charge``, ``capacity``, ``design_capacity``, ``power_supply_health``, ``power_supply_technology``, ``location``, ``cell_voltage`` and ``cell_temperature``.
 
@@ -952,7 +952,7 @@ This release is a reliability and driving-quality update for every CAN robot (Mi
 - **Correct speed and odometry on every robot.** Wheel speed was under-reported by 10% on the Mini and MITI and by 40% on the MAX and MEGA. It is now exact, and odometry measures true distance.
 - **Accurate, smooth low-speed driving on the MITI.** Low-speed wheel speed is now read correctly, and feedforward wheel control gives launches without overshoot, faster pivots and the quietest drive of all settings tested. See *MITI drive update* below.
 - **Smooth, battery-safe stopping.** A new braking band removes the jolt at the end of a stop and keeps regenerative braking within what the battery accepts, including from full speed.
-- **Emergency stop on the controller.** Circle stops the robot; Triangle resets it. Works on PS4 and PS5 controllers.
+- **Emergency stop on the controller.** Cross stops the robot; Circle resets it. Works on PS4 and PS5 controllers.
 - **Retuned motor control.** New PID gains for the Mini, MITI and MAX, tuned on hardware with the corrected speed feedback.
 - **Battery percentage from a calibrated voltage,** configurable per pack, with 0% set above the battery protection cut-off.
 - **One driver for Humble and Jazzy.** Both branches carry identical driver code and configs.
@@ -984,10 +984,10 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Braking band** (``brake_band_duty``, ``brake_band_rpm``, ``rpm_per_duty``). Bounds how hard the wheel controller may brake a rolling wheel. Enabled on the MAX 130 and MAX 150; off by default elsewhere. See *Stopping and braking*.
 - **Feedforward** (``ff_rpm_per_duty``, ``ff_static_duty``, ``ff_turn_duty``, ``ff_calibration_voltage``, ``low_speed_trust_rpm``) and **speed smoothing for the PID** (``wheel_speed_filter``). Enabled on the MITI. See *Feedforward and launch control*.
 - **Tachometer speed source** (``use_tachometer_speed``), an optional fallback that reads wheel speed from the VESC tachometer (CAN status 5).
-- **Battery calibration** (``battery_cells``, ``battery_max_cell_voltage``, ``battery_min_cell_voltage``, ``battery_voltage_multiplier``) and ``power_supply_status`` on ``battery_status``. See *Battery*.
+- **Battery calibration** (``battery_cells``, ``battery_max_cell_voltage``, ``battery_min_cell_voltage``, ``battery_voltage_multiplier``) and ``power_supply_status`` on ``battery_status`` (Rover Pro only; UNKNOWN on the CAN robots). See *Battery*.
 - **Configurable rest release** (``rest_wheel_rpm``). The speed below which a stopped wheel is released, previously fixed in code.
 - **Optional release hold** (``release_hold_s``). Keeps the motors braked briefly after the wheels read zero; off by default.
-- **Controller emergency stop.** ``topics.yaml`` maps Circle to ``/soft_estop/trigger`` and Triangle to ``/soft_estop/reset``. The input manager gained a button-to-``std_msgs/Bool`` topic type to support it.
+- **Controller emergency stop.** ``topics.yaml`` maps Cross to ``/soft_estop/trigger`` and Circle to ``/soft_estop/reset``. The input manager gained a button-to-``std_msgs/Bool`` topic type to support it.
 - **Estop status topic.** ``/soft_estop/status`` publishes the current estop state as a latched ``std_msgs/Bool``.
 - **Per-wheel joint states.** ``/joint_states`` now publishes each wheel's angle and true angular velocity.
 - **Odometry reset.** Publish to ``/roverrobotics_driver/reset_odometry`` to zero the pose without restarting the driver.
@@ -1026,6 +1026,8 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Fixed ``/robot_info`` requests.** Requests on ``robot_info_request_topic`` now work; previously the estop reset triggered it instead.
 - **Removed log flooding.** The command-timeout warning was printed every 2 seconds while idle (about 43,000 lines a day); it is now logged once per stop.
 - **Removed the unused trim file on CAN robots.** ``/trim_event`` and ``~/robot.config`` had no effect on the Mini, MITI, MAX and MEGA wheel control; a malformed file could crash the driver, and building its path wrote into the ``HOME`` environment string. The per-wheel ``wheel_trim_*`` parameters replace it. The Rover Pro keeps its trim.
+- **Fixed ``battery_status.current`` decoding.** The motor controller's input current was read as unsigned with ten times too small a scale; it is now signed and correctly scaled, so it reads negative while the motor regenerates.
+- **Removed false charging reports.** The CAN robots derived CHARGING from that motor current, which a charger never passes through; ``power_supply_status`` is now UNKNOWN on them.
 - **Hardened the VESC and CAN layer.** An unknown command type no longer terminates the driver, CAN write failures are reported, and the ``SET_CURRENT`` command is scaled in milliamps as the VESC expects.
 
 ### Improvements
@@ -1045,6 +1047,8 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **``device_port`` is now ``rovercan``.** Manual installs must install the udev rule described under *Connection*.
 - **Re-run ``setup_rover.sh --with-service`` on existing robots.** The brake-on-exit needs the service to stop gracefully (``KillMode=mixed``, ``KillSignal=SIGINT``), which the updated install script sets; see *Troubleshooting*. The service also restarts the stack when a node exits: a manual ``ros2 launch`` now ends instead of respawning the driver.
 - **CAN robots now refuse to drive on stale feedback.** A motor controller that stops reporting brings the robot to a stop instead of letting it drive on.
+- **The controller emergency stop moved to Cross (✕),** and Circle (○) now releases it; Triangle no longer does anything. Tell anyone who drives the robots.
+- **``power_supply_status`` is UNKNOWN on the CAN robots,** instead of FULL, DISCHARGING or NOT_CHARGING derived from one motor's current. Monitoring that keyed on those values should use ``percentage`` and ``voltage``.
 - **Battery percentage is now configurable per pack** (see *Battery*). With the defaults a 10-cell pack still reads 0% at 34 V and 100% at 42 V. The MITI applies a 1.025 correction to the reported voltage, measured against a meter, so it reads slightly higher than before at the same pack voltage.
 - **With the BNO055 enabled, use a ``bno055`` package with the startup-retry fix** (flynneva/bno055 pull request 85). Without it the IMU node can exit at boot before its serial port appears, and the stack restarts until the port is ready.
 - **MAX 130: new gains assume feedforward.** P 0.0005 / D 0.000025 are tuned together with the MAX 130 feedforward. If you turn feedforward off, go back to P 0.0012 / D 0.00006.
@@ -1054,7 +1058,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 ### Known issues
 
 - An emergency stop at full speed brakes as hard as the motors allow and briefly raised the bus to about 55 V in testing. It is safe to use, but it should not be the routine way to stop at top speed.
-- ``battery_status.current`` is not a battery current (see the ``battery_status`` section) and is decoded without its sign, so ``power_supply_status`` never reports CHARGING.
+- Charging is not reported on the CAN robots, which have no battery current sensor: ``power_supply_status`` is UNKNOWN, and ``battery_status.current`` is one motor controller's input current, not the battery's (see the ``battery_status`` section).
 - On some JetPack 6 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
 - Below about 0.07 m/s on the MITI the VESC speed reading is still unreliable (too few hall edges), so a small bump can remain when starting at a crawl.
@@ -1081,3 +1085,4 @@ A dated record of the work in this release, for reference.
 | 2026-09-29 | Calibrated the MAX 130 without payload: *Hall Interpolation ERPM* 50, effective wheel radius 0.155 and track width 0.90, and feedforward from stand and ground holds in both directions. | MAX 130: tape 3.015 m for 3.0 m commanded, odometry −0.5%; pivot 104%, arc 98% |
 | 2026-09-30 | Lowered the MAX 130 gains for feedforward and added ``ff_correction_decay``. Traced the forward creep before a pivot to a correction frozen by the launch hold and added ``ff_correction_release``. Traced inconsistent stops to the braking band handing a still-accelerating wheel to the PID; set ``brake_momentum_carry`` and ``brake_band_duty`` 0.20. Added the gentle start limits, then moved them from the measured speed to the command after a speed dip while weaving, and extended ``ff_correction_release`` to corrections left over from a turn. Added the MAX controller limits. Each change was tested on a stand and then in a recorded pad drive. | MAX 130: arc 103%, pivot 102%; forward drift before a pivot 0.16 → 0.08 m; 35 of 35 stops on the band; launch current median 31 → 16 A; weaving speed dip median 20% → 4%; pivot-start current median 37 → 21 A |
 | 2026-10-01 | Verified the MAX 130 drive update on ROS 2 Jazzy: stand speed sweep and pivot, ground speed hold with tape measure, pivots, arcs, forward-to-pivot, and two recorded controller drives, one with the commands logged. Added the beginner guide and the step-by-step sensor setup to this README. | MAX 130 on an Orin Nano, JetPack 7: stand 99.6 to 100.2% at 0.1 to 0.8 m/s; tape 3.02 m for 3.0 m commanded, odometry −0.5%; pivot 102%; arc 99%; stops after a quick stick release 0.46 to 0.86 s from up to 1.87 m/s; top speed held at the 1.875 m/s controller limit |
+| 2026-10-01 | Fixed the ``battery_status.current`` decoding (signed, correct scale) and set ``power_supply_status`` to UNKNOWN on the CAN robots, which cannot detect charging. Removed the unused ``diagnostics_frequency`` setting from every robot config. Set every package to version 1.1.0 with a current maintainer. Removed the build warnings on Jazzy from the deprecated ``rcppmath`` rolling-mean name, keeping Humble on the name it supports. Moved the controller emergency stop to Cross, with Circle to release it. | MAX 130 on a stand, ROS 2 Jazzy: published ``current`` equal to the motor controller's own report, +0.4 to +0.5 A driving and −0.1 A while braking (the old decoding turned that −0.1 A into 655 A); ``power_supply_status`` UNKNOWN throughout. Controller emergency stop on a PS4 controller: Cross engaged and Circle released it on every press, within 10 ms. Driver builds without warnings on ROS 2 Humble and Jazzy |
