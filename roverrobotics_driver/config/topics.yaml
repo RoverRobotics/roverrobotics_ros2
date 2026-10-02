@@ -20,8 +20,8 @@ joy_manager:
 soft_estop_trigger:
   topic: /soft_estop/trigger
   type: Bool
-  button: B
+  button: A
 soft_estop_reset:
   topic: /soft_estop/reset
   type: Bool
-  button: Y
+  button: B

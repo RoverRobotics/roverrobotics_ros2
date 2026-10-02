@@ -48,8 +48,9 @@ namespace vesc {
         }
         else if (commandId == STATUS_COMMAND_ID_4)
         {
-            float amperage_scaled = (robotmsg[9] << 8) | (robotmsg[10]);
-            currentAmperage_ = ((float)amperage_scaled) * CURRENT_IN_SCALING_FACTOR;
+            // signed: negative while the motor regenerates
+            int16_t amperage_scaled = static_cast<int16_t>((robotmsg[9] << 8) | robotmsg[10]);
+            currentAmperage_ = static_cast<float>(amperage_scaled) * CURRENT_IN_SCALING_FACTOR;
 
             return (vescChannelStatus){
                 .vescId = 0, 

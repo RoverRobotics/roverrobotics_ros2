@@ -20,7 +20,14 @@
 #include "rclcpp/node_options.hpp"
 #include <rclcpp/rclcpp.hpp>
 #include "rclcpp/time.hpp"
+// rcpputils from Jazzy on; Humble only has the rcppmath name
+#if __has_include("rcpputils/rolling_mean_accumulator.hpp")
+#include "rcpputils/rolling_mean_accumulator.hpp"
+namespace rover_rolling_mean = rcpputils;
+#else
 #include "rcppmath/rolling_mean_accumulator.hpp"
+namespace rover_rolling_mean = rcppmath;
+#endif
 #include "std_msgs/msg/bool.hpp"
 #include "std_msgs/msg/float32.hpp"
 #include "sensor_msgs/msg/battery_state.hpp"
@@ -44,7 +51,7 @@ class RobotDriver : public rclcpp::Node {
 
  private:
   // Default Values
-  using RollingMeanAccumulator = rcppmath::RollingMeanAccumulator<double>;
+  using RollingMeanAccumulator = rover_rolling_mean::RollingMeanAccumulator<double>;
   RollingMeanAccumulator linear_accumulator_;
   RollingMeanAccumulator angular_accumulator_;
   const std::string ROBOT_STATUS_TOPIC_DEFAULT_ = "/robot_status";

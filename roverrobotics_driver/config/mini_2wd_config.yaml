@@ -20,7 +20,6 @@ roverrobotics_driver:
     motor_control_i_gain: 0.000000
     motor_control_d_gain: 0.000005
 
-    diagnostics_frequency: 0.2
     odometry_frequency: 15.0
     pose_linear_covariance: 0.1   # x/y uncertainty of the dead-reckoned pose
     pose_yaw_covariance: 0.5      # yaw uncertainty of the dead-reckoned pose

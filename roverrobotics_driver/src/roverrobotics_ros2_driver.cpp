@@ -532,22 +532,23 @@ void RobotDriver::publish_robot_status() {
     battery_msg.percentage = soc;
     battery_msg.voltage = corrected_voltage;
     battery_msg.current = robot_data_.battery1_current;
+    // no pack current sensor: VESC input current is one motor's draw or regen, so charging cannot be detected
+    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_UNKNOWN;
   } else {
     battery_msg.percentage = mapValue(robot_data_.battery1_SOC, inMin, inMax, outMin, outMax);
     battery_msg.voltage = robot_data_.battery1_SOC/29.94; //pro firmware reports voltage max as 970 and min as 770, hence the no. is divided by 29.94 to get the value in the actual range
     battery_msg.current = robot_data_.battery2_current;
-  }
 
-  // Charging detection based on current direction
-  // VESC reports negative current_in when charging, positive when discharging
-  if (battery_msg.percentage >= 100.0f) {
-    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_FULL;
-  } else if (battery_msg.current < -0.1f) {
-    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING;
-  } else if (battery_msg.current > 0.1f) {
-    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
-  } else {
-    battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_NOT_CHARGING;
+    // the Pro's battery board reports pack current
+    if (battery_msg.percentage >= 100.0f) {
+      battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_FULL;
+    } else if (battery_msg.current < -0.1f) {
+      battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_CHARGING;
+    } else if (battery_msg.current > 0.1f) {
+      battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_DISCHARGING;
+    } else {
+      battery_msg.power_supply_status = sensor_msgs::msg::BatteryState::POWER_SUPPLY_STATUS_NOT_CHARGING;
+    }
   }
 
   battery_soc_publisher_->publish(battery_msg);

@@ -2,12 +2,13 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>roverrobotics_description</name>
-  <version>1.0.2</version>
+  <version>1.1.0</version>
   <description>Rover URDF and Robot Descriptions</description>
-  <maintainer email="jack@roverrobotics.com">Jack Rivera</maintainer>
+  <maintainer email="shashank@roverrobotics.com">Shashank Sharma</maintainer>
   <license>Apache-2.0</license>
 
   <author email="info@roverrobotics.com">Rover Robotics</author>
+  <author email="jack@roverrobotics.com">Jack Rivera</author>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
