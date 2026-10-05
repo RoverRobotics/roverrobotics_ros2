@@ -792,7 +792,8 @@ void RobotDriver::watchdog_tick() {
 int main(int argc, char **argv) {
   rclcpp::init(argc, argv);
 
-  rclcpp::executors::MultiThreadedExecutor executor;
+  // one callback group runs one callback at a time anyway; Jazzy's MultiThreadedExecutor can drop it for good (ros2/rclcpp#3240)
+  rclcpp::executors::SingleThreadedExecutor executor;
 
   auto rover_node = std::make_shared<RobotDriver>();
   executor.add_node(rover_node);

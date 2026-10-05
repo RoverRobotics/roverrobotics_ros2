@@ -679,6 +679,8 @@ A PS4 controller must reconnect itself: after pairing, press its PS button rathe
 
 **``CAN interface <name> not found``, followed by ``Error when connecting to robot``.** The ``device_port`` in the robot config does not exist. On CAN robots it should be ``rovercan``; confirm with ``ip -br link`` and see *Connection*.
 
+**The controller and the robot stop when the robot leaves the WiFi, and come back when it returns.** By default Cyclone DDS ties all ROS traffic to the WiFi address, including messages between programs on the robot itself, so losing the WiFi stops the controller, the input manager and the driver from hearing each other. The log shows ``ddsi_udp_conn_write ... failed with retcode -1``. Re-run ``./setup_rover.sh --with-cyclone``: it sets up Cyclone so the robot's own traffic goes over loopback, which never goes away, and the WiFi and Ethernet ports are optional extras for laptops on the network. Tested on Humble and Jazzy with the WiFi off for 20 seconds: no gap. See the install scripts' README for details.
+
 **The wheels keep turning for about a second after the service is stopped.** When the driver exits cleanly it sends a brake command to every motor controller, but only if systemd lets it shut down in order. The service installed by ``setup_rover.sh`` does this (``KillMode=mixed``, ``KillSignal=SIGINT``). On a robot installed before this change, re-run ``./setup_rover.sh --with-service``. A hard crash or ``kill -9`` cannot send the brake; to cover that case, set a *Timeout Brake Current* on each VESC in VESC Tool so the controllers brake rather than coast.
 
 ## Simulation with Gazebo
@@ -775,11 +777,47 @@ The 3D LiDAR sees in 3D, not only in one flat slice. It connects over Ethernet r
    ros2 topic hz /sick/points
    ```
 
-### GPS
+### GPS (jazzy branch)
 
-The robot model already has a GPS mounting point, ``gps_link`` (``roverrobotics_description/urdf/accessories/gps.urdf``), and the simulation publishes a simulated GPS position on ``/fix``. The install script's device rules also name a u-blox GPS receiver ``/dev/ublox-gps`` when it is plugged in, so you can check that the receiver is detected with ``ls -l /dev/ublox-gps``.
+The GPS is a **u-blox ZED-F9P** receiver on USB. Unlike the other sensors it runs as its own service, ``rover-ublox.service``, not with the robot software, so a GPS that drops out never stops the robot. It is supported on the ``jazzy`` branch.
 
-On the real robot, a GPS receiver is **not** started by the robot software yet: there is no ``gps`` entry in ``accessories.yaml``. To use one today, install and start a ROS 2 driver for your receiver separately, and point it at ``/dev/ublox-gps`` with the frame ``gps_link``.
+1. **Software.** Run ``./setup_rover.sh --with-gps`` (or tick GPS in the installer). This installs the GPS driver, the service and its watchdog. The GPS stays off until step 3.
+2. **Plug it in and check its name:**
+   ```bash
+   ls -l /dev/ublox-gps
+   ```
+   If the GPS is switched on, plugging it in starts it by itself.
+3. **Switch it on.** In ``accessories.yaml``, under ``ublox_gps_node:``, set:
+   ```yaml
+   ublox_gps_node:
+     ros__parameters:
+       active: true
+   ```
+   The other settings in that block (update rate, satellite systems, ``frame_id: gps_link``) suit the ZED-F9P; leave them unless you know you need a change.
+4. **Make sure your robot's model has the GPS on it.** The GPS position is published in the frame ``gps_link``, and navigation can only use it if the robot model says where that frame is. **None of the robot models include the GPS by default.** Open your robot's model, for example ``roverrobotics_description/urdf/miti.urdf`` (the MAX uses ``max_130.urdf`` or ``max_150.urdf``), and add this line under ``<!-- Part Includes - Payload, Sensors, Etc.. -->``, next to the other sensors:
+   ```xml
+   <xacro:include filename="$(find roverrobotics_description)/urdf/accessories/gps.urdf" />
+   ```
+   Then set where the GPS antenna sits on your robot in ``roverrobotics_description/urdf/accessories/gps.urdf``: the ``origin xyz`` of ``gps_to_payload`` is its position in metres from ``payload_link`` (forward, left, up). The model is loaded by the robot software, so this step needs the robot software restarted too (step 5).
+5. **Build and restart** the GPS, and the robot software if you changed the model in step 4:
+   ```bash
+   cd ~/rover_workspace
+   colcon build
+   sudo systemctl restart rover-ublox
+   sudo systemctl restart roverrobotics    # only after a model change
+   ```
+   Check that the robot model now has the GPS: ``ros2 run tf2_ros tf2_echo base_link gps_link`` should print a position, not an error.
+6. **Check it:**
+   ```bash
+   ros2 topic hz /fix
+   ```
+   You should see about 8 messages per second. ``/fix`` is published even before the receiver has a satellite fix; check ``status`` in ``ros2 topic echo /fix`` and take the receiver outdoors with a clear view of the sky.
+
+**Switching it off** is the same in reverse: ``active: false``, build, restart ``rover-ublox``. While it is off, ``systemctl status rover-ublox`` shows the service as *skipped*. That is normal.
+
+What the service takes care of: it waits for a receiver that appears late at boot, starts the GPS as soon as the receiver is plugged in, power-cycles the receiver over USB before each start, retries a missing receiver every few seconds and then once a minute, and restarts the GPS if ``/fix`` goes silent. It does not restart for a missing satellite fix, which a restart cannot cure. Its log is ``journalctl -u rover-ublox``.
+
+The GPS position on the robot is ``gps_link`` (``roverrobotics_description/urdf/accessories/gps.urdf``). The simulation also publishes a simulated ``/fix``.
 
 ### Intel RealSense camera
 
@@ -1028,6 +1066,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Removed the unused trim file on CAN robots.** ``/trim_event`` and ``~/robot.config`` had no effect on the Mini, MITI, MAX and MEGA wheel control; a malformed file could crash the driver, and building its path wrote into the ``HOME`` environment string. The per-wheel ``wheel_trim_*`` parameters replace it. The Rover Pro keeps its trim.
 - **Fixed ``battery_status.current`` decoding.** The motor controller's input current was read as unsigned with ten times too small a scale; it is now signed and correctly scaled, so it reads negative while the motor regenerates.
 - **Removed false charging reports.** The CAN robots derived CHARGING from that motor current, which a charger never passes through; ``power_supply_status`` is now UNKNOWN on them.
+- **Fixed the driver freezing on ROS 2 Jazzy.** Jazzy's multi-threaded executor can permanently stop running a callback group ([ros2/rclcpp#3240](https://github.com/ros2/rclcpp/issues/3240)); the driver then stays alive but publishes nothing and ignores ``/cmd_vel``. It happened within a minute on every start under ``rmw_zenoh``, and is rarer with Fast DDS. The driver now uses the single-threaded executor. All its callbacks were already in one callback group, which runs them one at a time, so nothing ran in parallel before either and the robot drives the same.
 - **Hardened the VESC and CAN layer.** An unknown command type no longer terminates the driver, CAN write failures are reported, and the ``SET_CURRENT`` command is scaled in milliamps as the VESC expects.
 
 ### Improvements
@@ -1035,6 +1074,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - **Stable CAN interface naming.** All CAN configs now use ``rovercan``, a fixed name given to the USB-CAN adapter by a udev rule, so the driver can no longer bind to an unused onboard CAN controller after a reboot.
 - **PS5 is the default controller** in every teleop launch. PS4 remains fully supported.
 - **Deceleration tuned on hardware.** ``max_velocity_step`` is 0.75 on every robot; the earlier 0.05 made the robot coast after the stick was released.
+- **GPS on the jazzy branch.** A u-blox ZED-F9P switched on and off in ``accessories.yaml`` (``ublox_gps_node``) and run by its own service, so a GPS that drops out never stops the robot. See *GPS (jazzy branch)* under *Adding Sensors*.
 - **Beginner guide.** *New here? Start with this* walks through installing, driving, everyday commands and changing a setting without prior ROS knowledge, and *Adding Sensors* gives step-by-step setup and checks for the BNO055 IMU, RPLIDAR S2, SICK multiScan136, GPS and RealSense.
 - **Clearer startup logging.** The driver logs its gear ratio, pole pairs, control mode, braking settings and serial number at startup, and warns about invalid settings.
 
@@ -1060,6 +1100,7 @@ These changes are opt-in and enabled only in ``max_130_config.yaml``; the MAX 15
 - An emergency stop at full speed brakes as hard as the motors allow and briefly raised the bus to about 55 V in testing. It is safe to use, but it should not be the routine way to stop at top speed.
 - Charging is not reported on the CAN robots, which have no battery current sensor: ``power_supply_status`` is UNKNOWN, and ``battery_status.current`` is one motor controller's input current, not the battery's (see the ``battery_status`` section).
 - On some JetPack 6 systems, Fast DDS can stop delivering messages between processes shortly after start. Use Cyclone DDS as described under *Troubleshooting*.
+- With Fast DDS, or with Cyclone DDS set up by hand, losing the WiFi can stop all ROS traffic on the robot until the WiFi returns. Cyclone DDS set up by ``setup_rover.sh --with-cyclone`` does not have this problem; Fast DDS has not been tested for it.
 - The braking band's default values were measured on a MAX 130. Confirm ``rpm_per_duty`` on the first MAX 150 before relying on it for hard stops.
 - Below about 0.07 m/s on the MITI the VESC speed reading is still unreliable (too few hall edges), so a small bump can remain when starting at a crawl.
 - Feedforward is calibrated for the MITI and the MAX 130 only. Other robots use the PID alone until calibrated.
@@ -1086,3 +1127,5 @@ A dated record of the work in this release, for reference.
 | 2026-09-30 | Lowered the MAX 130 gains for feedforward and added ``ff_correction_decay``. Traced the forward creep before a pivot to a correction frozen by the launch hold and added ``ff_correction_release``. Traced inconsistent stops to the braking band handing a still-accelerating wheel to the PID; set ``brake_momentum_carry`` and ``brake_band_duty`` 0.20. Added the gentle start limits, then moved them from the measured speed to the command after a speed dip while weaving, and extended ``ff_correction_release`` to corrections left over from a turn. Added the MAX controller limits. Each change was tested on a stand and then in a recorded pad drive. | MAX 130: arc 103%, pivot 102%; forward drift before a pivot 0.16 → 0.08 m; 35 of 35 stops on the band; launch current median 31 → 16 A; weaving speed dip median 20% → 4%; pivot-start current median 37 → 21 A |
 | 2026-10-01 | Verified the MAX 130 drive update on ROS 2 Jazzy: stand speed sweep and pivot, ground speed hold with tape measure, pivots, arcs, forward-to-pivot, and two recorded controller drives, one with the commands logged. Added the beginner guide and the step-by-step sensor setup to this README. | MAX 130 on an Orin Nano, JetPack 7: stand 99.6 to 100.2% at 0.1 to 0.8 m/s; tape 3.02 m for 3.0 m commanded, odometry −0.5%; pivot 102%; arc 99%; stops after a quick stick release 0.46 to 0.86 s from up to 1.87 m/s; top speed held at the 1.875 m/s controller limit |
 | 2026-10-01 | Fixed the ``battery_status.current`` decoding (signed, correct scale) and set ``power_supply_status`` to UNKNOWN on the CAN robots, which cannot detect charging. Removed the unused ``diagnostics_frequency`` setting from every robot config. Set every package to version 1.1.0 with a current maintainer. Removed the build warnings on Jazzy from the deprecated ``rcppmath`` rolling-mean name, keeping Humble on the name it supports. Moved the controller emergency stop to Cross, with Circle to release it. | MAX 130 on a stand, ROS 2 Jazzy: published ``current`` equal to the motor controller's own report, +0.4 to +0.5 A driving and −0.1 A while braking (the old decoding turned that −0.1 A into 655 A); ``power_supply_status`` UNKNOWN throughout. Controller emergency stop on a PS4 controller: Cross engaged and Circle released it on every press, within 10 ms. Driver builds without warnings on ROS 2 Humble and Jazzy |
+| 2026-10-02 | Added the GPS (jazzy branch) and verified on hardware: a cold power-up with the driver answering its first command, a stop when motor controllers go silent, the wheel revolution count, the turn settling after a pivot, and the robot software surviving a loss of WiFi with Cyclone DDS set up by the install scripts. | MAX 130 and MITI on ROS 2 Jazzy, Orin Nano: driver moving the wheels 0.14 to 0.16 s after its first command after power-up; with two motor controllers disconnected all wheels held stopped within 0.75 s; tachometer 10.00 to 10.02 revolutions for 10 counted by eye; 0.55 degree settle after a pivot; no gap in controller or odometry messages with the WiFi off for 20 s (ROS 2 Humble too) |
+| 2026-10-05 | Reproduced the ROS 2 Jazzy executor freeze (ros2/rclcpp#3240) and fixed it by moving the driver to the single-threaded executor. | MITI on a stand, Orin Nano, ROS 2 Jazzy: with commands at 100 Hz, the multi-threaded driver froze in 4 of 4 runs under rmw_zenoh, the single-threaded driver in none; Fast DDS and Cyclone DDS unaffected either way; the same scripted drive with both executors gave the same starts, stops (0.14 to 0.34 s, no reverse duty), steady speed (100.7 to 101.5%) and currents |
