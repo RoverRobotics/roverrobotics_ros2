@@ -54,6 +54,44 @@ bno055:
     # variance_orientation: [0.0, 0.0, 0.0] # [rad]
     # variance_mag: [0.0, 0.0, 0.0] # [Tesla]
 
+# u-blox GPS (ZED-F9P) Settings
+# Runs as its own service, rover-ublox.service (setup_rover.sh --with-gps), not with the robot launch,
+# so a GPS that drops out never stops the robot. Needs ros-jazzy-ublox-gps.
+ublox_gps_node:
+  ros__parameters:
+    active: false                       # true to start the GPS (then: colcon build, sudo systemctl restart rover-ublox)
+    device: /dev/ublox-gps              # udev name for the u-blox USB receiver (1546:01a9)
+    frame_id: gps_link
+    rate: 8.0                           # navigation rate, Hz
+    config_on_startup: true             # program the receiver on every start
+    save_on_shutdown: false
+    tmode3: 0                           # rover, no survey-in
+    dynamic_model: automotive
+    fix_mode: 3d
+    gnss:
+      gps: true
+      glonass: true
+      galileo: true
+      beidou: true
+      qzss: true
+      sbas: true
+    uart1:
+      baudrate: 115200
+    inf:
+      all: true
+    raw_data: true
+    publish:
+      all: true
+      nav:
+        pvt: true
+        relposned: true
+        status: true
+        sat: true
+      rxm:
+        rtcm: true
+      mon:
+        hw: true
+
 # Realsense D435i Settings
 realsense:
   ros__parameters:
