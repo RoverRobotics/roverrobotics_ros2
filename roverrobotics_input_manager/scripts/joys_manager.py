@@ -7,6 +7,10 @@ from sensor_msgs.msg import Joy
 import yaml
 from modules.Controller import Controller, Axis, Button
 from modules.Topics import Topics, TwistTopic
+from modules.PadHeartbeat import PadHeartbeat
+
+# no pad report for this long = link stalled: stop, and ignore the sticks until the link is back and they are centred
+PAD_STALE_S = 0.5
 
 class Mapper(Node):
     def __init__(self, joy_topic, name="joy_manager"):
@@ -33,6 +37,10 @@ class Mapper(Node):
         self._controller = self._configure_controller_mapping(open_yaml(controller)) if controller else None
         self._topics = self._register_topics(open_yaml(topics)) if topics else None
 
+        self._pad = PadHeartbeat(self.get_logger())
+        self._pad_stale = False
+        self.create_timer(0.05, self._check_pad)
+
     def _joy_callback(self, msg: Joy):
         if not self._controller:
             self.get_logger().fatal('Axis and Button mappings must be defined.')
@@ -42,7 +50,31 @@ class Mapper(Node):
             rclpy.shutdown()
         self._controller.update_states(**{'axes': msg.axes, 'buttons': msg.buttons})
 
+        if self._pad_stale:
+            age = self._pad.age()
+            if age is None or age > PAD_STALE_S or not self._sticks_centred():
+                return
+            self._pad_stale = False
+            self.get_logger().info('pad link back and sticks centred: driving re-enabled')
         self._topics.publish(self._controller)
+
+    def _check_pad(self):
+        age = self._pad.age()
+        if not self._topics or self._pad_stale or age is None or age <= PAD_STALE_S:
+            return
+        self._pad_stale = True
+        self.get_logger().warn(f'no pad report for {age:.2f} s: stopping; sticks ignored until the link is back and they are centred')
+        for topic in self._topics._topics.values():
+            if isinstance(topic, TwistTopic):
+                topic._publisher.publish(Twist())
+
+    def _sticks_centred(self):
+        for topic in self._topics._topics.values():
+            if isinstance(topic, TwistTopic):
+                for ax in (topic.x, topic.yaw):
+                    if abs(topic._convert_input(ax, self._controller)) > 0.05:
+                        return False
+        return True
 
     def _configure_controller_mapping(self, button_mappings: dict):
         return Controller(button_mappings)
