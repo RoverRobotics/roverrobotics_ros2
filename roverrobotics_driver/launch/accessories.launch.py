@@ -7,7 +7,6 @@ from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.actions import LogInfo
-from launch.actions import Shutdown
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 from math import pi
@@ -34,7 +33,9 @@ def generate_launch_description():
             name='rplidar',
             parameters=[accessories_config_path],
             output='screen',
-            on_exit=Shutdown())
+            # a sensor that dies must not stop the robot driving
+            respawn=True,
+            respawn_delay=5.0)
 
         # Add RPLidar S2 to launch description
         ld.add_action(lidar_node)
@@ -64,25 +65,14 @@ def generate_launch_description():
             package='sick_scan_xd',
             executable='sick_generic_caller',
             arguments=[multiscan_launch_path],
-            output='screen')
+            output='screen',
+            respawn=True,
+            respawn_delay=5.0)
 
         # Add SICK multiScan136 to launch description
         ld.add_action(multiscan_node)
 
-    # BNO055 IMU Setup
-    if accessories_config.get('bno055', {}).get('ros__parameters', {}).get('active', False):
-        bno055_node = Node(
-            package = 'bno055',
-            name = 'bno055',
-            executable = 'bno055',
-            parameters = [accessories_config_path],
-            remappings=[
-                ('/imu', '/imu/data')
-            ],
-            on_exit=Shutdown())
-        
-        # Add BNO055 IMU to launch description
-        ld.add_action(bno055_node)
+    # the BNO055 IMU has its own launch file, imu.launch.py, started by rover-bno055.service
 
     # Realsense Node
     if accessories_config.get('realsense', {}).get('ros__parameters', {}).get('active', False):
@@ -92,7 +82,8 @@ def generate_launch_description():
             executable='realsense2_camera_node',
             parameters=[accessories_config_path],
             output='screen',
-            on_exit=Shutdown())
+            respawn=True,
+            respawn_delay=5.0)
 
         # Add Realsense d435i to launch description
         ld.add_action(realsense_node)
