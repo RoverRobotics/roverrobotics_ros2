@@ -218,7 +218,7 @@ ros2 launch roverrobotics_driver <robot>_teleop.launch.py
 Our launch files launch (1) The Robot Driver, (2) The robot description, (3) an accessories launch, and (4) A PS5 Controller Driver.
 (1) The Robot Driver: responsible for interfacing with our robot and handling velocity commands as well as publishing wheel odometry
 (2) The Robot Description: responsible for publishing to the /robot_description topic and providing transforms between the base_link, chassis_link, and payload_link. Edit the URDF for your robot to define new frames or remove links
-(3) Accessories Launch: a convenience launch for sensor packages to run when the robot is launched. 
+(3) Accessories Launch: a convenience launch for sensor packages to run when the robot is launched. The IMU is not in it: it has its own launch file, ``imu.launch.py``, and service so that losing it never stops the robot.
 (4) PS5 Controller Driver: handles input from the PS5 (DualSense) Controller
 
 The teleop launch files use ``ps5_controller.launch.py`` by default. To use a PS4 controller instead, either pass ``--gamepad ps4`` to ``setup_rover.sh``, or edit the robot's ``*_teleop.launch.py`` to include ``ps4_controller.launch.py``. Button and axis mappings live in ``config/ps4_controller_config.yaml`` and ``config/ps5_controller_config.yaml``; the ``*_jp6`` variants carry the mapping used on JetPack 6 and newer Jetson images, where the pad enumerates differently.
@@ -723,7 +723,9 @@ nano ~/rover_workspace/src/roverrobotics_ros2/roverrobotics_driver/config/access
 
 The IMU measures how the robot turns and tilts. Navigation uses it to keep its heading accurate.
 
-1. **Software.** Say yes to the IMU in ``setup_rover.sh``, or run ``./setup_rover.sh --with-imu`` again. This installs a ``bno055`` package with a fix for a startup timing problem, and with the service it also clears the IMU's serial port before every start.
+The IMU runs as its own service, ``rover-bno055.service``, not with the robot software, so an IMU that drops out never stops the robot.
+
+1. **Software.** Say yes to the IMU in ``setup_rover.sh``, or run ``./setup_rover.sh --with-imu`` again. This installs a ``bno055`` package with fixes for the startup timing and for a sensor that goes away while running, and it installs the service, which clears the IMU's serial port before every start.
 2. **Plug it in and check its name:**
    ```bash
    ls -l /dev/bno055
@@ -736,12 +738,19 @@ The IMU measures how the robot turns and tilts. Navigation uses it to keep its h
        active: true
        uart_port: "/dev/bno055"
    ```
-4. **Build and restart.**
+4. **Build, then restart the IMU:**
+   ```bash
+   sudo systemctl restart rover-bno055
+   ```
 5. **Check it:**
    ```bash
    ros2 topic hz /imu/data
    ```
    You should see about 100 messages per second. Turn the robot by hand and watch the turn rate with ``ros2 topic echo /imu/data --field angular_velocity``.
+
+**Switching it off** is the same in reverse: ``active: false``, build, restart ``rover-bno055``. While it is off, ``systemctl status rover-bno055`` shows the service as *skipped*. That is normal.
+
+What the service takes care of: it waits for an IMU that appears late at boot, starts as soon as the IMU is plugged in, clears the serial port before every start and power-cycles the bridge over USB when the port is missing entirely, restarts the IMU if ``/imu/data`` goes silent, and says plainly in its log when the sensor needs its power removed, which no restart can do for it. A missing IMU never stops the robot driving. Its log is ``journalctl -u rover-bno055``.
 
 The IMU's position on the robot is ``imu_link`` in the robot model (``roverrobotics_description/urdf/accessories/imu.urdf``). If you mount it somewhere else, update the position there.
 
@@ -960,10 +969,15 @@ This release follows the September release. It stops the robot when the controll
 - **The robot stops when the controller goes out of range.** Within 0.5 s of the controller's last report, instead of driving on for up to 15 s.
 - **No driver freeze on ROS 2 Jazzy.** The driver now runs on the single-threaded executor.
 - **MAX 130 drive update verified on ROS 2 Jazzy,** with the same stand and ground results as on Humble. See *MAX 130 drive update* under *Release Notes — September 2026*.
+- **The IMU keeps itself running, and never stops the robot.** It has its own service, which clears its serial port before every start, waits for it at boot, restarts it if it goes quiet and says when the sensor needs its power removed.
+- **A sensor that dies no longer stops the robot driving.** The LiDAR and camera are restarted in place instead of shutting the robot software down.
 - **Beginner guide** for installing, driving and changing a setting without prior ROS knowledge.
 
 ### Bug fixes
 
+- **Fixed a dead sensor taking the robot down with it.** Any accessory that exited used to shut the whole robot software down, so losing the IMU cost about 10 s with no driving. The LiDAR and camera are now restarted in place, and the IMU has its own service.
+- **Fixed the IMU driver never recovering a sensor that goes away while running.** It caught every read failure and carried on publishing nothing, so a sensor unplugged or wedged mid-run left the topic silent indefinitely. It now gives up after about 3 s of failed reads and lets its service restart it, with the serial port cleared first.
+- **Fixed the IMU driver's startup retry, which could never succeed.** Its second and later attempts failed on an unrelated error that also hid the real cause in the log. A sensor whose port is not ready yet now gets six real attempts, two seconds apart.
 - **Fixed ``battery_status.current`` decoding.** The motor controller's input current was read as unsigned with ten times too small a scale; it is now signed and correctly scaled, so it reads negative while the motor regenerates.
 - **Removed false charging reports.** The CAN robots derived CHARGING from that motor current, which a charger never passes through; ``power_supply_status`` is now UNKNOWN on them.
 - **Fixed the robot driving on when the controller goes out of range.** The joystick driver kept repeating the last stick position after the Bluetooth link stalled, for 14.6 s in a test at 1.25 m/s, until Linux declared the controller disconnected. The input manager now stops the robot 0.5 s after the controller's reports stop, and waits for centred sticks before driving again. See *When the controller goes out of range*.
@@ -979,6 +993,7 @@ This release follows the September release. It stops the robot when the controll
 ### Changes to be aware of
 
 - **The controller emergency stop moved to Cross (✕),** and Circle (○) now releases it; Triangle no longer does anything. Tell anyone who drives the robots.
+- **The IMU no longer starts with the robot software.** It has its own launch file, ``imu.launch.py``, started by ``rover-bno055.service``. It is still switched on and off in ``accessories.yaml`` as before. If you launch the robot software by hand without that service, start the IMU with ``ros2 launch roverrobotics_driver imu.launch.py``.
 - **``power_supply_status`` is UNKNOWN on the CAN robots,** instead of FULL, DISCHARGING or NOT_CHARGING derived from one motor's current. Monitoring that keyed on those values should use ``percentage`` and ``voltage``.
 
 ### Known issues
@@ -996,6 +1011,7 @@ A dated record of the work in this release, for reference.
 | 2026-10-01 | Fixed the ``battery_status.current`` decoding (signed, correct scale) and set ``power_supply_status`` to UNKNOWN on the CAN robots, which cannot detect charging. Removed the unused ``diagnostics_frequency`` setting from every robot config. Set every package to version 1.1.0 with a current maintainer. Removed the build warnings on Jazzy from the deprecated ``rcppmath`` rolling-mean name, keeping Humble on the name it supports. Moved the controller emergency stop to Cross, with Circle to release it. | MAX 130 on a stand, ROS 2 Jazzy: published ``current`` equal to the motor controller's own report, +0.4 to +0.5 A driving and −0.1 A while braking (the old decoding turned that −0.1 A into 655 A); ``power_supply_status`` UNKNOWN throughout. Controller emergency stop on a PS4 controller: Cross engaged and Circle released it on every press, within 10 ms. Driver builds without warnings on ROS 2 Humble and Jazzy |
 | 2026-10-05 | Reproduced the ROS 2 Jazzy executor freeze (ros2/rclcpp#3240) and fixed it by moving the driver to the single-threaded executor. | MITI on a stand, Orin Nano, ROS 2 Jazzy: with commands at 100 Hz, the multi-threaded driver froze in 4 of 4 runs under rmw_zenoh, the single-threaded driver in none; Fast DDS and Cyclone DDS unaffected either way; the same scripted drive with both executors gave the same starts, stops (0.14 to 0.34 s, no reverse duty), steady speed (100.7 to 101.5%) and currents |
 | 2026-10-06 | Measured the robot driving on with a controller out of range and added the controller link check to the input manager. Added ``pairable on`` to the controller pairing steps, after a PS5 paired without its pairing being saved and was refused. | MITI on a stand, Orin Nano, ROS 2 Jazzy: before, 14.6 s of driving at 1.25 m/s after the last controller report (PS4); after, the wheels stopped 0.84 to 0.90 s after the last report with a PS4 and a PS5 going out of Bluetooth range, and 0.72 s after a PS5 was unplugged from USB (0.5 s detection plus braking), with no stick command passed on while the link was down and no false stop in idle pauses of up to 149 s |
+| 2026-10-08 | Moved the IMU out of the accessories launch into its own launch file and service, with the serial port cleared before every start, a wait for an IMU that appears late, a restart if the topic goes quiet and a plain message when only removing the sensor's power can help. Fixed the IMU driver's startup retry, which could never succeed, and made it give up and let the service restart it after a run of failed reads instead of publishing nothing. Changed the remaining accessories to restart in place rather than shut the robot software down. | MITI on an Orin AGX, ROS 2 Humble: killing the IMU process cost 10 s with no driving before and none after, the driver's restart count unchanged. Cold boot twice: IMU configured once, ``/imu/data`` 45 to 54 Hz, odometry 15.000 Hz, camera 14.99 Hz. Booted with the IMU unplugged: driver 0 restarts, odometry 15.001 Hz, robot fully drivable, retry bounded to one attempt per 30 s. Plugged the IMU in with the robot running and gave no command: publishing 2 s later. Serial port taken away under the running driver: it gave up 3.0 s later and was publishing again 11.1 s after the port vanished, with one restart. Against a port that never answers: six retries two seconds apart, each reporting the real cause |
 
 ---
 
