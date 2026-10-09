@@ -605,7 +605,11 @@ void DifferentialRobot::send_command(int sleeptime) {
 
         /* only use current control when robot is stopped to prevent wasted energy
         */
-        bool useCurrentControl = motors_speeds_[vid] == MOTOR_NEUTRAL_ && released;
+        /* but never let go while the estop is engaged: freewheeling lets a robot
+         * stopped on a slope roll away, and the latch leaves the operator unable to
+         * motor-brake it. Holding costs nothing at standstill, where there is no EMF. */
+        bool useCurrentControl =
+            motors_speeds_[vid] == MOTOR_NEUTRAL_ && released && !estop_;
 
         robotstatus_mutex_.unlock();
 
