@@ -18,8 +18,9 @@ bno055:
     connection_type: "uart"
     uart_port: "/dev/bno055"
     uart_baudrate: 115200
-    uart_timeout: 0.1
-    data_query_frequency: 100
+    # measured: worst /imu/data gap 96 ms here vs 720 ms at 100/0.1; 0.02 desyncs the UART
+    uart_timeout: 0.03
+    data_query_frequency: 40
     calib_status_frequency: 0.1
     frame_id: "imu_link"
     operation_mode: 0x0C
