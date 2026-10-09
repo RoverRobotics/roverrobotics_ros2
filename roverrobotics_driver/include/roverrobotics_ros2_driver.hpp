@@ -76,6 +76,10 @@ class RobotDriver : public rclcpp::Node {
   const std::string SERIAL_NUMBER_DEFAULT_ = "";
   const float MAX_VELOCITY_STEP_DEFAULT_ = 0.75;
   const float CMD_VEL_TIMEOUT_DEFAULT_ = 0.3f;  // 300 ms
+  // the VESCs need a few seconds after power-up before they put a frame on the bus
+  const float BOOT_GRACE_DEFAULT_ = 5.0f;
+  // below any deliberate stick input, above noise: the operator has let go
+  const float ESTOP_RELEASE_DEADBAND_DEFAULT_ = 0.1f;
   const double REST_WHEEL_RPM_DEFAULT_ = 8.0;
   const double BRAKE_BAND_DUTY_DEFAULT_ = 0.0;
   const double BRAKE_BAND_RPM_DEFAULT_ = 0.0;
@@ -218,6 +222,11 @@ class RobotDriver : public rclcpp::Node {
   double last_incoming_angular_z_ = 0.0;
 
   double cmd_vel_timeout_sec_;
+  double boot_grace_sec_;
+  double estop_release_deadband_;
+  bool awaiting_release_ = false;
+  bool first_data_seen_ = false;
+  rclcpp::Time node_start_time_;
   /* steady clock so a wall-clock jump (NTP at boot) can't defeat the timeout */
   rclcpp::Clock steady_clock_{RCL_STEADY_TIME};
   rclcpp::Time last_cmd_time_;
@@ -243,6 +252,13 @@ class RobotDriver : public rclcpp::Node {
   rclcpp::TimerBase::SharedPtr velocity_timer_;
 
   void watchdog_tick();
+
+  /**
+   * @brief True when the robot has sent data. Before the first frame it waits out
+   * boot_grace_sec instead of treating silence as fatal; after that, and after any
+   * later loss, it reports the fault as before.
+   */
+  bool robot_data_ready();
 
   void publish_ramped_velocity();
 

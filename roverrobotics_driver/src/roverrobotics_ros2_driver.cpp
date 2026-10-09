@@ -70,7 +70,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
 
   max_velocity_step_ = declare_number_("max_velocity_step", MAX_VELOCITY_STEP_DEFAULT_);
   cmd_vel_timeout_sec_ = declare_number_("cmd_vel_timeout_sec", CMD_VEL_TIMEOUT_DEFAULT_);
+  boot_grace_sec_ = declare_number_("boot_grace_sec", BOOT_GRACE_DEFAULT_);
+  estop_release_deadband_ =
+      declare_number_("estop_release_deadband", ESTOP_RELEASE_DEADBAND_DEFAULT_);
   last_cmd_time_ = steady_clock_.now();
+  node_start_time_ = steady_clock_.now();
   double rest_wheel_rpm = declare_number_("rest_wheel_rpm", REST_WHEEL_RPM_DEFAULT_);
   if (!std::isfinite(rest_wheel_rpm) || rest_wheel_rpm <= 0.0 || rest_wheel_rpm > 30.0) {
     RCLCPP_ERROR(get_logger(), "rest_wheel_rpm %f out of (0, 30], using %.1f",
@@ -440,14 +444,36 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
     std::bind(&RobotDriver::watchdog_tick, this));
 }
 
+bool RobotDriver::robot_data_ready() {
+  if (robot_->is_connected()) {
+    if (!first_data_seen_) {
+      first_data_seen_ = true;
+      RCLCPP_INFO(get_logger(), "First data from the robot after %.1f s",
+                  (steady_clock_.now() - node_start_time_).seconds());
+    }
+    return true;
+  }
+  /* Before the first frame this is a cold start, not a fault: the driver comes up
+   * with the machine while the VESCs are still powering on, and failing here used
+   * to shut the whole launch down and cost a restart cycle. A later loss is still
+   * reported immediately, because by then the robot has proven it can talk. */
+  const double waited = (steady_clock_.now() - node_start_time_).seconds();
+  if (!first_data_seen_ && waited < boot_grace_sec_) {
+    RCLCPP_WARN_THROTTLE(get_logger(), steady_clock_, 1000,
+                         "Waiting for the first data from the robot (%.1f of %.1f s)",
+                         waited, boot_grace_sec_);
+    return false;
+  }
+  RCLCPP_FATAL(
+      get_logger(),
+      "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
+  rclcpp::shutdown();
+  return false;
+}
+
 void RobotDriver::publish_robot_info() {
   // RCLCPP_INFO(get_logger(), "Updating Robot Info");
-  if (!robot_->is_connected()) {
-    RCLCPP_FATAL(
-        get_logger(),
-        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
-    rclcpp::shutdown();
-  }
+  if (!robot_data_ready()) return;
   robot_data_ = robot_->info_request();
   std_msgs::msg::Float32MultiArray robot_info;
   robot_info.data.clear();
@@ -462,12 +488,7 @@ void RobotDriver::publish_robot_info() {
 
 void RobotDriver::publish_robot_status() {
   // std::cerr << robot_->is_connected() << std::endl;
-  if (!robot_->is_connected()) {
-    RCLCPP_FATAL(
-        get_logger(),
-        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
-    rclcpp::shutdown();
-  }
+  if (!robot_data_ready()) return;
   // RCLCPP_INFO(get_logger(), "Updating Robot Status");
   robot_data_ = robot_->status_request();
   std_msgs::msg::Float32MultiArray robot_status;
@@ -555,12 +576,7 @@ void RobotDriver::publish_robot_status() {
 }
 
 void RobotDriver::update_odom() {
-  if (!robot_->is_connected()) {
-    RCLCPP_FATAL(
-        get_logger(),
-        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
-    rclcpp::shutdown();
-  }
+  if (!robot_data_ready()) return;
   robot_data_ = robot_->status_request();
   
   // RCLCPP_INFO(get_logger(), "Updating Robot Odom");
@@ -690,16 +706,23 @@ void RobotDriver::publish_joint_states(double dt) {
 
 void RobotDriver::velocity_event_callback(
     geometry_msgs::msg::Twist::ConstSharedPtr msg) {
-  if (!robot_->is_connected()) {
-    RCLCPP_FATAL(
-        get_logger(),
-        "Did not receive any data from the robot or the data is stale. Check that the robot is connected to the computer and that permissions are set correctly.");
-    rclcpp::shutdown();
-  }
+  if (!robot_data_ready()) return;
 
   if (!std::isfinite(msg->linear.x) || !std::isfinite(msg->angular.z)) {
     RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "non-finite cmd_vel ignored");
     return;
+  }
+  if (awaiting_release_) {
+    if (std::abs(msg->linear.x) >= estop_release_deadband_ ||
+        std::abs(msg->angular.z) >= estop_release_deadband_) {
+      /* refresh the link so the timeout below measures silence, not this gate */
+      last_cmd_time_ = steady_clock_.now();
+      RCLCPP_WARN_THROTTLE(get_logger(), steady_clock_, 1000,
+                           "waiting for the control to be centred before driving");
+      return;
+    }
+    awaiting_release_ = false;
+    RCLCPP_INFO(get_logger(), "control centred: driving re-enabled");
   }
   last_cmd_time_ = steady_clock_.now();
   halted_ = false;
@@ -765,6 +788,16 @@ void RobotDriver::estop_reset_event_callback(
     estop_state_ = false;
     robot_->send_estop(estop_state_);
     publish_estop_status();
+    /* Drop whatever was commanded before the stop: without this the next control pass
+     * re-applies it at full torque, and an estop does not make an operator let go of
+     * the stick. Then wait for them to let go, which every input device shows either as
+     * a centred command or as the command stream stopping. */
+    target_linear_velocity_  = 0.0;
+    last_linear_velocity_    = 0.0;
+    last_incoming_angular_z_ = 0.0;
+    awaiting_release_ = true;
+    RCLCPP_WARN(get_logger(),
+                "estop released: ignoring commands until the control is centred or released");
   }
 }
 
@@ -785,6 +818,12 @@ void RobotDriver::watchdog_tick() {
     if (!halted_) {
       RCLCPP_WARN(get_logger(), "cmd_vel timeout (%.2fs > %.2fs). HALT.", dt, cmd_vel_timeout_sec_);
       halted_ = true;
+    }
+    /* an event-driven teleop publishes nothing when the operator lets go, so silence
+     * counts as release too; without this the gate above could never clear */
+    if (awaiting_release_) {
+      awaiting_release_ = false;
+      RCLCPP_INFO(get_logger(), "control released: driving re-enabled");
     }
   }
 }
