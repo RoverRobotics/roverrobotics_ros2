@@ -51,6 +51,7 @@ class TwistTopic:
 
         self._HALT = Twist()
         self._last_message_was_halt = False
+        self.clamped = False   # last publish hit a speed ceiling
 
         # Use override if provided (> 0), otherwise fall back to topics.yaml
         self._lin_throttle_increment = ovr['lin_increment'] if ovr.get('lin_increment', -1.0) > 0 else params['throttle']['lin_increment']
@@ -78,7 +79,9 @@ class TwistTopic:
         # turbo = self._convert_input(self.turbo, controller)
         # self._set_turbo(turbo)
 
-        msg.linear.x = self._clamp(self._lin_throttle_coef * self._convert_input(self.x, controller), self._max_lin_speed)
+        raw_x = self._lin_throttle_coef * self._convert_input(self.x, controller)
+        msg.linear.x = self._clamp(raw_x, self._max_lin_speed)
+        self.clamped = msg.linear.x != raw_x
         msg.linear.y = self._clamp(self._lin_throttle_coef * self._convert_input(self.y, controller), self._max_lin_speed)
         msg.linear.z = self._clamp(self._lin_throttle_coef * self._convert_input(self.z, controller), self._max_lin_speed)
         msg.angular.x = self._clamp(self._ang_throttle_coef * self._convert_input(self.roll, controller), self._max_ang_speed)

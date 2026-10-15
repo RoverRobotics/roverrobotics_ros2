@@ -7,6 +7,8 @@ joy_manager:
     lin_throttle_ctrl: DPAD_VERT
     ang_increment: 0.25
     ang_throttle_ctrl: DPAD_HORIZ
+    max_lin_speed: 2.5           # fleet backstop, m/s; a robot's own joy_manager block overrides
+    max_ang_speed: 5.0           # fleet backstop, rad/s
   turbo: 0
   data:
     linear:

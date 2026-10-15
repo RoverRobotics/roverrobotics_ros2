@@ -33,6 +33,7 @@ namespace rover_rolling_mean = rcppmath;
 #include "sensor_msgs/msg/battery_state.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/float32_multi_array.hpp"
+#include "diagnostic_msgs/msg/diagnostic_array.hpp"
 #include "std_msgs/msg/string.hpp"
 #include "std_msgs/msg/empty.hpp"
 #include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
@@ -55,6 +56,8 @@ class RobotDriver : public rclcpp::Node {
   RollingMeanAccumulator linear_accumulator_;
   RollingMeanAccumulator angular_accumulator_;
   const std::string ROBOT_STATUS_TOPIC_DEFAULT_ = "/robot_status";
+  const std::string DIAGNOSTICS_TOPIC_DEFAULT_ = "/diagnostics";
+  const double DIAGNOSTICS_HZ_ = 5.0;
   const float ROBOT_STATUS_FREQUENCY_DEFAULT_ = 60.0;
   const std::string ROBOT_INFO_REQUEST_TOPIC_DEFAULT_ = "/robot_info/request";
   const std::string ROBOT_INFO_TOPIC_DEFAULT_ = "/robot_info";
@@ -68,8 +71,8 @@ class RobotDriver : public rclcpp::Node {
   const std::string TRIM_TOPIC_DEFAULT_ = "/trim_event";
   const bool ESTOP_STATE_DEFAULT_ = false;
   const std::string CONTROL_MODE_DEFAULT_ = "INDEPENDENT_WHEEL";
-  const float LINEAR_TOP_SPEED_DEFAULT_ = 2;
-  const float ANGULAR_TOP_SPEED_DEFAULT_ = 2;
+  const float LINEAR_TOP_SPEED_DEFAULT_ = 0;   // 0 = no bound
+  const float ANGULAR_TOP_SPEED_DEFAULT_ = 0;  // 0 = no bound
   const bool PUB_ODOM_TF_DEFAULT_ = false;
   const float GEAR_RATIO_DEFAULT_ = 1;
   const float MOTOR_POLE_PAIRS_DEFAULT_ = 15;
@@ -137,6 +140,10 @@ class RobotDriver : public rclcpp::Node {
       robot_info_publisher;  // publish robot_unique info
   rclcpp::Publisher<std_msgs::msg::Float32MultiArray>::SharedPtr
       robot_status_publisher_;  // publish robot state
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr
+      diagnostics_publisher_;   // why the robot will or will not move, for people
+  rclcpp::TimerBase::SharedPtr diagnostics_timer_;
+  void publish_diagnostics();
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr
       odometry_publisher_;  // Odom Publisher
    rclcpp::Publisher<sensor_msgs::msg::BatteryState>::SharedPtr
@@ -160,6 +167,7 @@ class RobotDriver : public rclcpp::Node {
   std::string estop_reset_topic_;
   std::string estop_status_topic_;
   std::string robot_status_topic_;
+  std::string diagnostics_topic_;
   float robot_status_frequency_;
   std::string robot_info_request_topic_;
   std::string robot_info_topic_;
