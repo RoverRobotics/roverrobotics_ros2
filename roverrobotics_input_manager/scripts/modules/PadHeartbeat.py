@@ -13,6 +13,8 @@ class PadHeartbeat:
         self._last = None
         self._path = None
         self._warned = False
+        self._gap_seen = None
+        self._gap_limit = 0.10   # measured: 50-175 ms gaps ran for ~30 s before a drop
         threading.Thread(target=self._run, daemon=True).start()
 
     @staticmethod
@@ -25,6 +27,10 @@ class PadHeartbeat:
 
     def age(self):
         return None if self._last is None else time.monotonic() - self._last
+
+    def degraded(self, window=2.0):
+        # a report gap this long is not a dropped link yet, but the range is going
+        return self._gap_seen is not None and time.monotonic() - self._gap_seen < window
 
     def _run(self):
         while True:
@@ -49,7 +55,10 @@ class PadHeartbeat:
                     r, _, _ = select.select([fd], [], [], 0.5)
                     if r:
                         os.read(fd, 128)
-                        self._last = time.monotonic()
+                        now = time.monotonic()
+                        if self._last is not None and now - self._last > self._gap_limit:
+                            self._gap_seen = now
+                        self._last = now
             except OSError:
                 pass  # disconnected: age keeps growing until the pad is back
             finally:

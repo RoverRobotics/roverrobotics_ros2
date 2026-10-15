@@ -234,12 +234,46 @@ The teleop launch files use ``ps5_controller.launch.py`` by default. To use a PS
 | **Cross (✕)** | **Software emergency stop.** Latches the robot stopped until reset. |
 | **Circle (○)** | **Reset the emergency stop.** The robot resumes on the next stick input. |
 
+#### What the controller tells you
+
+The controller's light bar and rumble report what the robot is doing, so you can watch the robot instead of a screen. One rule per colour: **red means stopped and you can clear it from the pad; magenta means something is broken and no button will help.**
+
+| Light bar | Meaning | What to do |
+| --- | --- | --- |
+| Dim green | Idle, you have control | Drive |
+| Green | Driving | — |
+| **Red, steady** | Software emergency stop engaged | Press Circle to release |
+| **Red, slow blink** | Stopped because the controller link dropped | Press Circle once back in range |
+| **Orange, steady** | Released, but a stick is still held | Centre the sticks |
+| **Magenta, fast blink** | A motor controller is not answering, or the driver has died | Go and look at the robot; see ``/diagnostics`` |
+| **Magenta, slow blink** | The robot software is not running at all | The light is frozen at its last state; restart the service |
+| Dim magenta, steady | Waiting for the driver at start-up | Normal for a few seconds after boot |
+| **Cyan, 1 Hz / 3 Hz** | Robot battery low (25%) / critical (10%) | Charge the robot |
+| **Yellow, five flashes a minute** | The **controller's own** battery is below 20% | Charge the controller before it drops the link |
+| Blue | Autonomy has the wheels | — |
+
+Rumble carries the same information for when the controller is not in view:
+
+| Feel | Meaning |
+| --- | --- |
+| One long buzz | Emergency stop engaged, or the robot stopped itself when the link dropped |
+| Three firm taps | A motor controller is not answering, or the driver has died |
+| One short tap | Speed scale changed with the D-pad |
+| Two light taps | The command was clipped by the speed limit |
+| Soft tap every 2 s | The controller link is degrading; you are near the edge of range |
+| Heartbeat, slow then doubled | Robot battery low, then critical |
+| Five buzzes a minute, left side | The controller's own battery is low |
+
+On a PS5 controller the triggers also stiffen into a wall you cannot pull through while the robot is stopped by an emergency stop or a fault. PS4 controllers have no adaptive triggers and simply ignore this.
+
+This needs write access to the controller's raw device, which the install scripts' udev rules grant to the ``plugdev`` group. Without it the driver logs one line and the controller works exactly as before, minus the light and rumble. Controllers that are not PlayStation pads have no programmable light, so they get rumble only.
+
 The estop buttons work on both the PS4 and the PS5 controller. They are defined in ``config/topics.yaml`` by button name (``A`` for Cross, ``B`` for Circle), and every controller config maps those names to the correct physical buttons for its kernel driver, so no per-controller change is needed. A single press sends a single message; holding the button does not repeat it.
 
 
 #### When the controller goes out of range
 
-If a controller connected to the robot goes out of range, its link can stall without disconnecting, and the joystick driver keeps repeating the last stick position ([ros-drivers/joystick_drivers#92](https://github.com/ros-drivers/joystick_drivers/issues/92)), so the robot would keep driving. The input manager watches the controller's own report stream instead: a connected PS4 or PS5 controller sends several hundred reports a second even with the sticks still. If none arrive for 0.5 s, it sends one stop command and ignores the sticks until the controller is back **and** the sticks are centred. It needs read access to the controller's raw device, which the install scripts' udev rules give; without it, it logs a warning and the controller works as before. Commands from anything else, such as navigation or remote teleoperation, are not affected.
+If a controller connected to the robot goes out of range, its link can stall without disconnecting, and the joystick driver keeps repeating the last stick position ([ros-drivers/joystick_drivers#92](https://github.com/ros-drivers/joystick_drivers/issues/92)), so the robot would keep driving. The input manager watches the controller's own report stream instead: a connected PS4 or PS5 controller sends several hundred reports a second even with the sticks still. If none arrive for 0.5 s, it sends one stop command and ignores the sticks until the controller is back **and the operator presses the emergency-stop reset button (Circle)**. Centred sticks are not accepted as proof: after a controller powers off and on, the joystick driver reports a stick that is still held as centred until it next moves, so a held stick would have re-armed the robot on its own. It needs read access to the controller's raw device, which the install scripts' udev rules give; without it, it logs a warning and the controller works as before. Commands from anything else, such as navigation or remote teleoperation, are not affected.
 
 ## Driver Configuration
 
@@ -476,8 +510,8 @@ Shipped gains, tuned on hardware:
 
 | Parameter | Description |
 | --- | --- |
-| ``linear_top_speed`` | Upper bound on commanded forward speed, m/s. |
-| ``angular_top_speed`` | Upper bound on commanded yaw rate, rad/s. |
+| ``linear_top_speed`` | Upper bound on commanded forward speed, m/s. Applies to every source of ``cmd_vel``, the gamepad included. Defaults to 0, which means no bound. |
+| ``angular_top_speed`` | Upper bound on commanded yaw rate, rad/s. Defaults to 0, which means no bound. |
 | ``angular_a_coef``, ``angular_b_coef``, ``angular_c_coef`` | Coefficients of a quadratic that scales the commanded yaw rate by the robot's measured forward speed: ``scale = a*v^2 + b*v + c``. Use it to reduce steering authority as the robot speeds up. All three default to 0. |
 | ``angular_min_scale``, ``angular_max_scale`` | Clamp on that scale factor. Both default to 1.0, which makes the quadratic inert: **leave them at 1.0 unless you are deliberately tuning steering response**, because with the coefficients at 0 the raw scale would otherwise clamp to zero and the robot would not turn. |
 
@@ -596,6 +630,8 @@ joy_manager:
     max_ang_speed: 1.875
 ```
 
+``topics.yaml`` sets a fleet-wide ``max_lin_speed`` of 2.5 m/s and ``max_ang_speed`` of 5.0 rad/s under ``throttle``, which applies to every robot that does not define its own ``joy_manager`` block. A robot's own block overrides it.
+
 ``max_lin_speed`` and ``max_ang_speed`` cap the published command, not the D-pad multiplier: pressing past the cap still raises the multiplier, so partial stick moves faster until the D-pad is pressed back down. ``max_teleop.launch.py`` reads the same config file as ``max.launch.py``; if you switch ``max.launch.py`` to ``max_130_config.yaml``, switch ``max_teleop.launch.py`` too.
 
 ### `rover_<robot_type>/battery_status` (`sensor_msgs/BatteryState`)
@@ -652,6 +688,24 @@ Two caveats. It is **not published periodically**: it publishes only when a ``st
 
 A flat, unlabelled array. Indices 0-19 are five values per motor in the order id, rpm, current, temperature, MOSFET temperature, for motors 1 to 4. So per-wheel RPM sits at indices 1, 6, 11 and 16. RPM here is **wheel** RPM, after the pole-pair and gear-ratio conversion. Prefer ``/joint_states`` for per-wheel work.
 
+
+### `/diagnostics` (`diagnostic_msgs/DiagnosticArray`, 5 Hz)
+
+Why the robot will or will not move, in the standard ROS diagnostics format, so ``rqt_robot_monitor`` and the usual tooling read it without any extra work. One status, named ``roverrobotics_driver: drivetrain``.
+
+``level`` is **OK** when the robot is ready, **WARN** for an engaged software emergency stop, and **ERROR** when something is wrong that an operator cannot clear from the controller: a motor controller that has stopped answering, or no data at all.
+
+| Key | Meaning |
+| --- | --- |
+| ``motion_blocked_by`` | ``none``, ``soft_estop``, ``stale_vesc`` or ``cmd_timeout`` — why the control loop is refusing to move |
+| ``soft_estop`` | ``true`` while the **software** emergency stop is engaged |
+| ``stale_vesc`` | 0 when every motor controller is fresh, else the id of the stalest |
+| ``vesc1_age_ms`` … ``vesc4_age_ms`` | How long since each motor controller last reported, in ms. Capped at 100000, reported as "none received" in the log |
+| ``cmd_age_ms`` | Age of the last velocity command when the control loop last looked |
+
+The driver holds every motor stopped while any motor controller's feedback is stale, and before this topic existed it said so only on its standard error stream: a robot with a dead wheel looked healthy on every topic. The per-wheel ages matter because one unplugged connector often silences two motor controllers, which a single id would not tell you.
+
+**This reports the software emergency stop only.** The hardware emergency stops are not wired to the computer, and nothing in this message speaks for them.
 
 ### Timestamps
 
@@ -966,10 +1020,12 @@ We also recommend these ROS2 tutorial playlists from [Articulated Robotics](http
 
 ## Release Notes — October 2026
 
-This release follows the September release. It stops the robot when the controller goes out of range, fixes a driver freeze on ROS 2 Jazzy, corrects the battery current reading, moves the controller emergency stop to Cross, verifies the MAX 130 drive update on ROS 2 Jazzy and adds a beginner guide to this README. Every change listed here was tested on hardware before release.
+This release follows the September release. It reports the robot's state on the controller's light bar and rumble, publishes why the robot will or will not move on ``/diagnostics``, stops the robot when the controller goes out of range, fixes a driver freeze on ROS 2 Jazzy, corrects the battery current reading, moves the controller emergency stop to Cross, verifies the MAX 130 drive update on ROS 2 Jazzy and adds a beginner guide to this README. Every change listed here was tested on hardware before release.
 
 ### Highlights
 
+- **The controller shows what the robot is doing.** Its light bar and rumble report driving, both emergency stops, a lost link, a silent motor controller, and both batteries, so an operator can watch the robot instead of a screen. See *What the controller tells you*.
+- **The robot now says why it will not move,** on ``/diagnostics`` in the standard ROS format. A motor controller that stops answering used to be visible only in the driver's standard error stream, so a robot with a dead wheel looked healthy on every topic.
 - **The robot stops when the controller goes out of range.** Within 0.5 s of the controller's last report, instead of driving on for up to 15 s.
 - **No driver freeze on ROS 2 Jazzy.** The driver now runs on the single-threaded executor.
 - **MAX 130 drive update verified on ROS 2 Jazzy,** with the same stand and ground results as on Humble. See *MAX 130 drive update* under *Release Notes — September 2026*.
@@ -992,11 +1048,15 @@ This release follows the September release. It stops the robot when the controll
 - **Fixed ``battery_status.current`` decoding.** The motor controller's input current was read as unsigned with ten times too small a scale; it is now signed and correctly scaled, so it reads negative while the motor regenerates.
 - **Removed false charging reports.** The CAN robots derived CHARGING from that motor current, which a charger never passes through; ``power_supply_status`` is now UNKNOWN on them.
 - **Fixed the robot driving on when the controller goes out of range.** The joystick driver kept repeating the last stick position after the Bluetooth link stalled, for 14.6 s in a test at 1.25 m/s, until Linux declared the controller disconnected. The input manager now stops the robot 0.5 s after the controller's reports stop, and waits for centred sticks before driving again. See *When the controller goes out of range*.
+- **Fixed a silent motor controller being invisible outside the robot.** The control loop already held every motor stopped when a motor controller's feedback went stale, and reported it only on its standard error stream. Two disconnected motor controllers left the robot refusing to move while every ROS topic looked normal. It is now on ``/diagnostics``, with the age of each motor controller's last report, and the controller goes magenta.
+- **Fixed the out-of-range stop re-arming itself.** Driving resumed once the sticks read centred, but after a controller powers off and on, the joystick driver reports a stick that is still held as centred until it next moves. A controller held forward through a dropout therefore satisfied the check, and the robot would take the full command the moment the stick twitched. Re-arming now requires a deliberate press of the reset button.
+- **Fixed a crash on a short joystick message.** A ``/joy`` message with fewer axes or buttons than the controller mapping expects killed the input manager, which also stops the out-of-range protection. Out-of-range entries now hold their last value and warn once.
 - **Fixed the driver freezing on ROS 2 Jazzy.** Jazzy's multi-threaded executor can permanently stop running a callback group ([ros2/rclcpp#3240](https://github.com/ros2/rclcpp/issues/3240)); the driver then stays alive but publishes nothing and ignores ``/cmd_vel``. It happened within a minute on every start under ``rmw_zenoh``, and is rarer with Fast DDS. The driver now uses the single-threaded executor. All its callbacks were already in one callback group, which runs them one at a time, so nothing ran in parallel before either and the robot drives the same.
 
 ### Improvements
 
 - **Beginner guide.** *New here? Start with this* walks through installing, driving, everyday commands and changing a setting without prior ROS knowledge, and *Adding Sensors* gives step-by-step setup and checks for the BNO055 IMU, RPLIDAR S2, SICK multiScan136, GPS and RealSense.
+- **Lower processor load from the controller.** The joystick driver published about 311 messages a second, which cost the input manager 72% of a processor core for no benefit, since the control loop runs every 30 ms. Coalescing them to 50 Hz more than halves it, to 32%, and nothing about driving changes.
 - **Package version 1.1.0** on every package, with a current maintainer.
 - **Removed the unused ``diagnostics_frequency`` setting** from every robot config.
 - **No build warnings on Jazzy** from the deprecated ``rcppmath`` rolling-mean name; Humble keeps the name it supports.
@@ -1019,6 +1079,9 @@ Validated on two MITI robots with the same sensor and cabling. The cause is in t
 - **The IMU no longer starts with the robot software.** It has its own launch file, ``imu.launch.py``, started by ``rover-bno055.service``. It is still switched on and off in ``accessories.yaml`` as before. If you launch the robot software by hand without that service, start the IMU with ``ros2 launch roverrobotics_driver imu.launch.py``.
 - **Releasing the emergency stop no longer drives immediately if a control is still held.** The robot waits for the control to be centred, or for the command stream to stop, and says so in its log. Tell anyone who drives the robots: after releasing the stop, let go and push again.
 - **An engaged emergency stop now holds the wheels.** They can no longer be pushed by hand, or roll on a slope, while the stop is latched. Releasing the stop releases the wheels as before.
+- **Releasing an out-of-range stop needs a button press.** After the controller comes back, the robot stays stopped until the reset button (Circle) is pressed. Centred sticks are no longer accepted, because a held stick can read as centred after the controller power-cycles. Tell anyone who drives the robots.
+- **New topic ``/diagnostics``.** Published at 5 Hz by the driver. If you already run a diagnostics aggregator, the driver's status appears under ``roverrobotics_driver: drivetrain``.
+- **The controller light bar and rumble need write access to the controller,** granted by the install scripts' udev rules to the ``plugdev`` group. On a robot set up before this release, re-run ``setup_rover.sh`` or the feature stays off with one line in the log.
 - **``power_supply_status`` is UNKNOWN on the CAN robots,** instead of FULL, DISCHARGING or NOT_CHARGING derived from one motor's current. Monitoring that keyed on those values should use ``percentage`` and ``voltage``.
 
 ### Known issues
@@ -1039,6 +1102,8 @@ A dated record of the work in this release, for reference.
 | 2026-10-08 | Moved the IMU out of the accessories launch into its own launch file and service, with the serial port cleared before every start, a wait for an IMU that appears late, a restart if the topic goes quiet and a plain message when only removing the sensor's power can help. Fixed the IMU driver's startup retry, which could never succeed, and made it give up and let the service restart it after a run of failed reads instead of publishing nothing. Changed the remaining accessories to restart in place rather than shut the robot software down. | MITI on an Orin AGX, ROS 2 Humble: killing the IMU process cost 10 s with no driving before and none after, the driver's restart count unchanged. Cold boot twice: IMU configured once, ``/imu/data`` 45 to 54 Hz, odometry 15.000 Hz, camera 14.99 Hz. Booted with the IMU unplugged: driver 0 restarts, odometry 15.001 Hz, robot fully drivable, retry bounded to one attempt per 30 s. Plugged the IMU in with the robot running and gave no command: publishing 2 s later. Serial port taken away under the running driver: it gave up 3.0 s later and was publishing again 11.1 s after the port vanished, with one restart. Against a port that never answers: six retries two seconds apart, each reporting the real cause |
 | 2026-10-09 | Fixed three faults in the emergency stop and startup paths. Releasing the stop no longer re-applies a command the operator is still holding: the stored command is cleared and driving waits for the control to be centred or for the command stream to stop. An engaged stop now holds the wheels instead of releasing them once they read zero. The driver no longer shuts the robot software down when the motor controllers have not sent their first data yet, with a new ``boot_grace_sec`` window that applies only before the first message ever arrives. | MITI on an Orin AGX, ROS 2 Humble, wheels clear of the ground. Release gate, driven from a remote operator's gamepad through a cloud dashboard: across 14 stop-and-release cycles it refused 12 commands that would previously have been applied at full torque, and both of its release conditions occurred in normal use - 5 cleared by a centred command, 7 by the command stream stopping; the longest refusal was 3.0 s while the stick was held, and 5 to 50 ms when it was not; the wheels were confirmed stopped throughout; 0 driver restarts. Held brake: the motor controllers' indicators stay lit while the stop is engaged and go out when it is released. Startup window: a cold power cycle showed the first data arriving 16 ms after the check, with no fatal error and no restart, where previously that timing lost about 8 s and a restart cycle; with no motor-controller data at all it still reported the fault after 5.0 s and behaved exactly as before; a late connection 3 s after start recovered with 0 restarts. |
 | 2026-10-09 | Steadied the IMU's timing: ``data_query_frequency`` 100 to 40 and ``uart_timeout`` 0.1 to 0.03 in ``accessories.yaml``, so the read loop has time to absorb a slow reading instead of falling permanently behind. | Two MITI robots, measured by differencing the timestamps the IMU itself puts on each message, cross-checked against arrival times. Before: 49.4 messages per second, worst gap 720 ms, 279 gaps over 100 ms in 150 s. After: 38.8 per second, worst gap 96 ms, no gap over 100 ms across 11,636 messages, no failed reads and no restarts; the second robot agreed to within 0.1 ms on every percentile. Intermediate settings were measured too: leaving the timeout at 0.1 and only lowering the rate halved the worst gap to 240 ms, so the timeout is the dominant term; and 50 with a 0.02 timeout broke the sensor outright at 6.3 per second with gaps over 8 s. |
+| 2026-10-14 | Added the controller light bar and rumble: driving and idle, both emergency stops, the out-of-range stop, a dead driver, both batteries and a stack that is no longer running, with a matching set of taps and buzzes. Hardened the out-of-range stop to require the reset button rather than centred sticks, after measuring that a held stick reads as centred once the controller has power-cycled. Guarded the controller mapping against a short ``/joy`` message, which used to kill the input manager and with it the out-of-range protection. | MITI on a jack, Orin Nano, ROS 2 Jazzy, PS4 controller over Bluetooth: every state seen or felt on the pad. Held stick through a controller power-cycle reported ``+0.00`` for 4.7 and 7.0 s in two runs before jumping back to ``+0.97``; after the change the robot stayed stopped for 16 s until the reset button was pressed, with no command published in between. Link quality measured while walking out of range: 50 to 175 ms report gaps for about 30 s before the link dropped |
+| 2026-10-15 | Published why the robot will or will not move on ``/diagnostics``, including the age of every motor controller's last report and a single field naming what is blocking motion. Removed the stop-gap ``/robot_health`` topic it replaced. Coalesced the joystick driver's output to 50 Hz. Added the controller's own battery to the light bar, read from the kernel's power-supply entry. | MITI on a jack, Orin Nano, ROS 2 Jazzy: one motor controller unplugged, ``level`` ERROR with ``motion_blocked_by=stale_vesc`` in the same second as the driver's own decision, the controller magenta until it was reconnected, then OK again; the per-motor ages showed two controllers silent (372 and 376 ms) where the summary named one. ``/robot_status`` unchanged at 33 values. ``/joy`` 311 to 34 Hz and the input manager 72% to 32% of a processor core. Controller battery warning fired on its own at 15%. Adaptive triggers confirmed on a DualSense; the emergency stop reset was re-tested and does not re-apply a stored command |
 
 ---
 
