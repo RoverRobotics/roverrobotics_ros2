@@ -47,7 +47,9 @@ def generate_launch_description():
         package='joy_linux',
         executable='joy_linux_node',
         output='screen',
-        parameters=[],
+        # 1 ms coalescing published /joy at ~311 Hz and cost joy_manager 72% of a
+        # core; the driver control loop is 30 ms, so 50 Hz is more than it can use
+        parameters=[{'coalesce_interval': 0.02}],
         respawn=True,
         respawn_delay=1
     )

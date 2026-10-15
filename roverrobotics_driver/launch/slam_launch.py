@@ -16,7 +16,7 @@ def generate_launch_description():
     autostart    = LaunchConfiguration('autostart_lifecycle')
 
     declare_use_sim_time = DeclareLaunchArgument(
-        'use_sim_time', default_value='True',
+        'use_sim_time', default_value='false',
         description='Use simulation/Gazebo clock')
 
     default_slam_params = os.path.join(
