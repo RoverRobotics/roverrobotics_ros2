@@ -7,6 +7,13 @@ double inMin = 750.0;
 double inMax = 970.0;
 double outMin = 0.0;
 double outMax = 100.0;
+/* 0 or less leaves the axis unbounded */
+static double clamp_top_speed(double v, double limit)
+{
+  if (limit <= 0.0) return v;
+  return std::max(-limit, std::min(limit, v));
+}
+
 double mapValue(double x, double inMin, double inMax, double outMin, double outMax)
 {
   if (x<inMin){
@@ -24,6 +31,8 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
   // Robot
   robot_status_topic_ =
       declare_parameter("robot_status_topic", ROBOT_STATUS_TOPIC_DEFAULT_);
+  diagnostics_topic_ =
+      declare_parameter("diagnostics_topic", DIAGNOSTICS_TOPIC_DEFAULT_);
   robot_status_frequency_ = declare_number_("robot_status_frequency",
                                               ROBOT_STATUS_FREQUENCY_DEFAULT_);
   robot_info_request_topic_ = declare_parameter(
@@ -243,6 +252,11 @@ RobotDriver::RobotDriver() : Node("roverrobotics", rclcpp::NodeOptions().use_int
       robot_info_topic_, rclcpp::QoS(32));
   robot_status_publisher_ = create_publisher<std_msgs::msg::Float32MultiArray>(
       robot_status_topic_, rclcpp::QoS(31));
+  diagnostics_publisher_ = create_publisher<diagnostic_msgs::msg::DiagnosticArray>(
+      diagnostics_topic_, rclcpp::QoS(10));
+  diagnostics_timer_ = create_wall_timer(
+      std::chrono::duration<double>(1.0 / DIAGNOSTICS_HZ_),
+      [=]() { publish_diagnostics(); });
   battery_soc_publisher_ = create_publisher<sensor_msgs::msg::BatteryState>(
       "rover_" + robot_type_ + "/battery_status", rclcpp::QoS(10));
   if (pub_odom_tf_) {
@@ -486,6 +500,69 @@ void RobotDriver::publish_robot_info() {
   robot_info_publisher->publish(robot_info);
 }
 
+static diagnostic_msgs::msg::KeyValue kv(const std::string &key,
+                                         const std::string &value) {
+  diagnostic_msgs::msg::KeyValue pair;
+  pair.key = key;
+  pair.value = value;
+  return pair;
+}
+
+void RobotDriver::publish_diagnostics() {
+  /* Deliberately does NOT call robot_data_ready(): that FATALs once the robot has
+     gone quiet, and this is exactly when someone wants to know what is wrong. */
+  robotData data = robot_->status_request();
+  const bool connected = robot_->is_connected();
+
+  const char *blocked = "none";
+  switch (data.motion_blocked) {
+    case MOTION_SOFT_ESTOP:  blocked = "soft_estop";  break;
+    case MOTION_VESC_STALE:  blocked = "stale_vesc";  break;
+    case MOTION_CMD_TIMEOUT: blocked = "cmd_timeout"; break;
+    default: break;
+  }
+
+  diagnostic_msgs::msg::DiagnosticStatus status;
+  status.name = "roverrobotics_driver: drivetrain";
+  status.hardware_id = serial_number_.empty() ? robot_type_ : serial_number_;
+
+  /* ERROR is reserved for faults nobody can clear from the pad: a soft e-stop is
+     an operator action and an idle robot has no recent command, so neither is one.
+     Only the SOFT e-stop is visible here; the hardware e-stops are not wired to
+     this computer and nothing in this message speaks for them. */
+  if (!connected) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    status.message = "no data from the robot";
+  } else if (data.stale_vesc) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::ERROR;
+    status.message = "VESC " + std::to_string(data.stale_vesc) +
+                     " feedback stale: holding all motors stopped";
+  } else if (data.motion_blocked == MOTION_SOFT_ESTOP) {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+    status.message = "soft e-stop engaged";
+  } else {
+    status.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+    status.message = (data.motion_blocked == MOTION_CMD_TIMEOUT)
+                         ? "ready, no recent velocity command"
+                         : "ready";
+  }
+
+  status.values.push_back(kv("motion_blocked_by", blocked));
+  status.values.push_back(kv("soft_estop", estop_state_ ? "true" : "false"));
+  status.values.push_back(kv("stale_vesc", std::to_string(data.stale_vesc)));
+  for (int vid = 1; vid <= 4; vid++) {
+    status.values.push_back(kv("vesc" + std::to_string(vid) + "_age_ms",
+                               std::to_string(static_cast<long>(data.vesc_age_ms[vid]))));
+  }
+  status.values.push_back(
+      kv("cmd_age_ms", std::to_string(static_cast<long>(data.cmd_age_ms))));
+
+  diagnostic_msgs::msg::DiagnosticArray array;
+  array.header.stamp = get_clock()->now();
+  array.status.push_back(status);
+  diagnostics_publisher_->publish(array);
+}
+
 void RobotDriver::publish_robot_status() {
   // std::cerr << robot_->is_connected() << std::endl;
   if (!robot_data_ready()) return;
@@ -726,8 +803,14 @@ void RobotDriver::velocity_event_callback(
   }
   last_cmd_time_ = steady_clock_.now();
   halted_ = false;
-  target_linear_velocity_  = msg->linear.x;
-  last_incoming_angular_z_ = msg->angular.z;
+  target_linear_velocity_  = clamp_top_speed(msg->linear.x,  linear_top_speed_);
+  last_incoming_angular_z_ = clamp_top_speed(msg->angular.z, angular_top_speed_);
+  if (target_linear_velocity_ != msg->linear.x ||
+      last_incoming_angular_z_ != msg->angular.z) {
+    RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000,
+                         "cmd_vel clamped to top speed (%.2f m/s, %.2f rad/s)",
+                         linear_top_speed_, angular_top_speed_);
+  }
 }
 
 void RobotDriver::publish_ramped_velocity()
@@ -785,9 +868,6 @@ void RobotDriver::estop_reset_event_callback(
     std_msgs::msg::Bool::ConstSharedPtr &msg) {
   if (msg->data == true) {
     RCLCPP_INFO(get_logger(), "Software Estop deactivated");
-    estop_state_ = false;
-    robot_->send_estop(estop_state_);
-    publish_estop_status();
     /* Drop whatever was commanded before the stop: without this the next control pass
      * re-applies it at full torque, and an estop does not make an operator let go of
      * the stick. Then wait for them to let go, which every input device shows either as
@@ -795,6 +875,11 @@ void RobotDriver::estop_reset_event_callback(
     target_linear_velocity_  = 0.0;
     last_linear_velocity_    = 0.0;
     last_incoming_angular_z_ = 0.0;
+    double stop_command[3] = {0.0, 0.0, 0.0};
+    robot_->set_robot_velocity(stop_command);  /* before the release, or the loop applies the held command */
+    estop_state_ = false;
+    robot_->send_estop(estop_state_);
+    publish_estop_status();
     awaiting_release_ = true;
     RCLCPP_WARN(get_logger(),
                 "estop released: ignoring commands until the control is centred or released");

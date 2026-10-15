@@ -56,7 +56,7 @@ def generate_launch_description():
 
     # --- Declarations
     declares = [
-        DeclareLaunchArgument('use_sim_time', default_value='True', description='Use simulation/Gazebo clock'),
+        DeclareLaunchArgument('use_sim_time', default_value='false', description='Use simulation/Gazebo clock'),
         DeclareLaunchArgument('log_level', default_value='info', description='RCUTILS log level'),
         DeclareLaunchArgument('autostart', default_value='true', description='Autostart lifecycle nodes'),
         DeclareLaunchArgument('use_composition', default_value='False', description='Use component container for Nav2'),

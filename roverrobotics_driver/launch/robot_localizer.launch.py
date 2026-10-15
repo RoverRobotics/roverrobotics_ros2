@@ -16,7 +16,7 @@ def generate_launch_description():
     publish_tf    = LaunchConfiguration('publish_tf')
 
     declare_use_sim_time = DeclareLaunchArgument(
-        'use_sim_time', default_value='True',
+        'use_sim_time', default_value='false',
         description='Use simulation/Gazebo clock')
 
     default_ekf = os.path.join(

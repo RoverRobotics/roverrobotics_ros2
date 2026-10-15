@@ -673,11 +673,27 @@ void DifferentialRobot::motors_control_loop(int sleeptime) {
       auto now = std::chrono::steady_clock::now();
       for (int vid = VESC_IDS::FRONT_LEFT; vid <= VESC_IDS::BACK_RIGHT; vid++) {
         long age = std::chrono::duration_cast<std::chrono::milliseconds>(now - status_ts_[vid]).count();
+        robotstatus_.vesc_age_ms[vid] = static_cast<float>(age > 100000 ? 100000 : age);
         if (age > STATUS_STALE_MS_ && age > stale_ms) {
           stale_vesc = vid;
           stale_ms = age;
         }
       }
+    }
+    robotstatus_.stale_vesc = static_cast<unsigned short int>(stale_vesc);
+    /* record WHY motion is refused, in the same order the control gate below
+       applies it. estop here is the SOFT e-stop; the hardware ones are not
+       visible to this driver and must never be implied by this field. */
+    const long cmd_age = (time_now - time_from_msg).count();
+    robotstatus_.cmd_age_ms = static_cast<float>(cmd_age > 100000 ? 100000 : cmd_age);
+    if (estop) {
+      robotstatus_.motion_blocked = MOTION_SOFT_ESTOP;
+    } else if (stale_vesc) {
+      robotstatus_.motion_blocked = MOTION_VESC_STALE;
+    } else if (cmd_age > CONTROL_LOOP_TIMEOUT_MS_) {
+      robotstatus_.motion_blocked = MOTION_CMD_TIMEOUT;
+    } else {
+      robotstatus_.motion_blocked = MOTION_OK;
     }
     robotstatus_mutex_.unlock();
 
