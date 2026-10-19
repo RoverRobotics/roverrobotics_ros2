@@ -51,7 +51,8 @@ class TwistTopic:
 
         self._HALT = Twist()
         self._last_message_was_halt = False
-        self.clamped = False   # last publish hit a speed ceiling
+        self.clamped = False   # last publish hit a speed ceiling, either axis
+        self.throttle_blocked = False   # a D-pad press was refused: already at the ceiling
 
         # Use override if provided (> 0), otherwise fall back to topics.yaml
         self._lin_throttle_increment = ovr['lin_increment'] if ovr.get('lin_increment', -1.0) > 0 else params['throttle']['lin_increment']
@@ -72,10 +73,13 @@ class TwistTopic:
 
     def publish(self, controller: Controller):
         msg = Twist()
+        self.throttle_blocked = False
         lin_throttle_input = self._convert_input(self.lin_throttle, controller)
-        self._set_lin_throttle(lin_throttle_input)
+        self._set_lin_throttle(lin_throttle_input,
+                               self._ceiling_coef(self.x, controller, self._max_lin_speed))
         ang_throttle_input = self._convert_input(self.ang_throttle, controller)
-        self._set_ang_throttle(ang_throttle_input)
+        self._set_ang_throttle(ang_throttle_input,
+                               self._ceiling_coef(self.yaw, controller, self._max_ang_speed))
         # turbo = self._convert_input(self.turbo, controller)
         # self._set_turbo(turbo)
 
@@ -86,7 +90,9 @@ class TwistTopic:
         msg.linear.z = self._clamp(self._lin_throttle_coef * self._convert_input(self.z, controller), self._max_lin_speed)
         msg.angular.x = self._clamp(self._ang_throttle_coef * self._convert_input(self.roll, controller), self._max_ang_speed)
         msg.angular.y = self._ang_throttle_coef * self._convert_input(self.pitch, controller)
-        msg.angular.z = self._clamp(self._ang_throttle_coef * self._convert_input(self.yaw, controller), self._max_ang_speed)
+        raw_z = self._ang_throttle_coef * self._convert_input(self.yaw, controller)
+        msg.angular.z = self._clamp(raw_z, self._max_ang_speed)
+        self.clamped = self.clamped or msg.angular.z != raw_z
         if msg == self._HALT:
             if self.publish_multiple_halts or not self._last_message_was_halt:
                 self._publisher.publish(msg)
@@ -115,18 +121,37 @@ class TwistTopic:
             return value
         return max(-max_speed, min(max_speed, value))
 
-    def _set_lin_throttle(self, throttle_input):
+    def _ceiling_coef(self, axis, controller, max_speed):
+        """Largest throttle coefficient that still fits under max_speed at full stick."""
+        if max_speed is None or not isinstance(axis, str):
+            return None
+        try:
+            scale = abs(float(controller[axis]._scale))
+        except (KeyError, AttributeError, TypeError, ValueError):
+            return None
+        return max_speed / scale if scale else None
+
+    def _step_throttle(self, coef, throttle_input, increment, ceiling):
+        """Returns the new coefficient and whether the press was refused."""
+        stepped = coef + throttle_input * increment
+        if stepped < 0:
+            return 0.0, False
+        if ceiling is not None and throttle_input > 0 and stepped > ceiling + 1e-9:
+            return coef, True        # already as fast as the ceiling allows
+        return stepped, False
+
+    def _set_lin_throttle(self, throttle_input, ceiling=None):
         if abs(throttle_input) == 1 and self._last_lin_throttle_input == 0:
-            self._lin_throttle_coef += throttle_input * self._lin_throttle_increment
-            if self._lin_throttle_coef < 0:
-                self._lin_throttle_coef = 0
+            self._lin_throttle_coef, refused = self._step_throttle(
+                self._lin_throttle_coef, throttle_input, self._lin_throttle_increment, ceiling)
+            self.throttle_blocked = self.throttle_blocked or refused
         self._last_lin_throttle_input = throttle_input
 
-    def _set_ang_throttle(self, throttle_input):
+    def _set_ang_throttle(self, throttle_input, ceiling=None):
         if abs(throttle_input) == 1 and self._last_ang_throttle_input == 0:
-            self._ang_throttle_coef += throttle_input * self._ang_throttle_increment
-            if self._ang_throttle_coef < 0:
-                self._ang_throttle_coef = 0
+            self._ang_throttle_coef, refused = self._step_throttle(
+                self._ang_throttle_coef, throttle_input, self._ang_throttle_increment, ceiling)
+            self.throttle_blocked = self.throttle_blocked or refused
         self._last_ang_throttle_input = throttle_input
 
 
