@@ -1,1 +1,6 @@
 .vscode/*
+
+# Python bytecode: ROS runs these scripts from the source tree with
+# --symlink-install, so running a node leaves build artefacts here
+__pycache__/
+*.pyc
