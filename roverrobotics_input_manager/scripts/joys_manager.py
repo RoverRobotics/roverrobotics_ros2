@@ -176,7 +176,10 @@ class Mapper(Node):
                 self._indicator.tick_throttle()
             self._last_throttle = throttle
             now = time.monotonic()
-            if topic.clamped and now - self._last_ceiling > CEILING_WARN_GAP_S:
+            if topic.throttle_blocked:
+                self._last_ceiling = now
+                self._indicator.tick_ceiling()   # the D-pad asked past the ceiling
+            elif topic.clamped and now - self._last_ceiling > CEILING_WARN_GAP_S:
                 self._last_ceiling = now
                 self._indicator.tick_ceiling()
             return
