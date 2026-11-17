@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main, humble, jazzy]
+  pull_request:
+    branches: [main, humble, jazzy]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-22.04
+    # jazzy branch builds on Jazzy; main and humble build on Humble
+    container: ros:${{ (github.base_ref || github.ref_name) == 'jazzy' && 'jazzy' || 'humble' }}-ros-base
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: src/roverrobotics_ros2
+
+      - name: Install dependencies
+        run: |
+          apt-get update
+          rosdep update --rosdistro "$ROS_DISTRO"
+          rosdep install --from-paths src --ignore-src -y
+
+      - name: Build
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          colcon build --event-handlers console_cohesion+ --cmake-args -DCMAKE_BUILD_TYPE=Release
+
+      # ament linters are skipped for now: roverrobotics_gazebo has existing
+      # copyright and flake8 findings. Drop --ctest-args once those are fixed.
+      - name: Test
+        run: |
+          source /opt/ros/$ROS_DISTRO/setup.bash
+          colcon test --event-handlers console_cohesion+ --ctest-args -LE linter
+          colcon test-result --verbose
